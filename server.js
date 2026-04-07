@@ -13,55 +13,90 @@ app.use(express.static('.'));
 
 // Rate limiting para seguridad
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutos
-    max: 100 // máximo 100 peticiones por IP
+    windowMs: 15 * 60 * 1000,
+    max: 100
 });
 app.use('/api/', limiter);
 
 // ==================== CONFIGURACIÓN SQL SERVER ====================
+// Configuración CORREGIDA - Usando Autenticación SQL (funciona)
 const dbConfig = {
-    server: process.env.DB_SERVER || 'GARITA\\PRINCIPAL',
-    database: process.env.DB_DATABASE || 'Matricula',
-    user: process.env.DB_USER || 'sa',
-    password: process.env.DB_PASSWORD || '1234',
-    port: parseInt(process.env.DB_PORT) || 5022,
+    server: 'Garita',           // Nombre del servidor (sin la instancia)
+    port: 1433,                 // Puerto fijo 1433
+    database: 'Matricula',
+    user: 'sa',                 // Usuario SQL
+    password: '1234',           // Contraseña
     options: {
-        encrypt: true,
-        trustServerCertificate: true,
-        enableArithAbort: true
+        trustServerCertificate: true,  // Para desarrollo
+        enableArithAbort: true,
+        encrypt: false,                // Deshabilitar SSL para desarrollo
+        connectTimeout: 30000,
+        requestTimeout: 30000
     },
-    connectionTimeout: 30000,
-    requestTimeout: 30000
+    pool: {
+        max: 10,
+        min: 0,
+        idleTimeoutMillis: 30000
+    }
 };
 
 let pool = null;
+let reconnectInterval = null;
 
 async function connectDB() {
     try {
+        if (pool) {
+            try {
+                await pool.close();
+            } catch(e) {}
+        }
+        
+        console.log('Conectando a SQL Server...');
+        console.log(`Servidor: ${dbConfig.server}:${dbConfig.port}`);
+        console.log(`Base de datos: ${dbConfig.database}`);
+        console.log(`Autenticación: SQL (usuario: ${dbConfig.user})`);
+        
         pool = await sql.connect(dbConfig);
-        console.log('✅ Conectado a SQL Server - Base de datos: Matricula');
+        
+        // Probar la conexión
+        const result = await pool.request().query('SELECT @@SERVERNAME as servidor, GETDATE() as fecha, DB_NAME() as db');
+        console.log('✅ Conectado a SQL Server');
+        console.log(`   Servidor: ${result.recordset[0].servidor}`);
+        console.log(`   Base de datos: ${result.recordset[0].db}`);
+        console.log(`   Fecha del servidor: ${result.recordset[0].fecha}`);
+        
+        if (reconnectInterval) {
+            clearInterval(reconnectInterval);
+            reconnectInterval = null;
+        }
+        
         return pool;
     } catch (err) {
         console.error('❌ Error conectando a SQL Server:', err.message);
-        console.log('Verifique que:');
-        console.log('1. SQL Server esté ejecutándose');
-        console.log('2. La base de datos "Matricula" exista');
-        console.log('3. Las credenciales sean correctas');
-        setTimeout(connectDB, 5000);
+        
+        // Reintentar cada 10 segundos
+        if (!reconnectInterval) {
+            reconnectInterval = setInterval(() => {
+                console.log('🔄 Reintentando conexión...');
+                connectDB();
+            }, 10000);
+        }
+        
         return null;
     }
 }
 
+// Iniciar conexión
 connectDB();
 
-// ==================== MIDDLEWARE DE AUTENTICACIÓN ====================
+// ==================== MIDDLEWARE ====================
 function verificarToken(req, res, next) {
     const token = req.headers['authorization']?.split(' ')[1];
     if (!token) {
         return res.status(401).json({ error: 'Token no proporcionado' });
     }
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'unimatricula_secret_2025');
         req.usuario = decoded;
         next();
     } catch (error) {
@@ -79,14 +114,40 @@ function verificarRol(rolesPermitidos) {
     };
 }
 
-// ==================== API DE AUTENTICACIÓN ====================
+// ==================== HEALTH CHECK ====================
+app.get('/api/health', async (req, res) => {
+    try {
+        if (pool) {
+            const result = await pool.request().query('SELECT GETDATE() as fecha, DB_NAME() as database');
+            res.json({ 
+                status: 'OK', 
+                database: 'Conectado',
+                fecha: result.recordset[0].fecha,
+                nombre_db: result.recordset[0].database,
+                config: {
+                    server: dbConfig.server,
+                    port: dbConfig.port,
+                    database: dbConfig.database,
+                    auth: 'SQL Authentication'
+                }
+            });
+        } else {
+            res.status(503).json({ status: 'ERROR', database: 'Desconectado' });
+        }
+    } catch (error) {
+        res.status(500).json({ status: 'ERROR', message: error.message });
+    }
+});
 
-// Login con SSO simulado
+// ==================== API DE AUTENTICACIÓN ====================
 app.post('/api/auth/login', async (req, res) => {
     try {
+        if (!pool) {
+            return res.status(503).json({ error: 'Base de datos no disponible' });
+        }
+        
         const { email, password, role } = req.body;
         
-        // Buscar usuario por correo
         const result = await pool.request()
             .input('email', sql.NVarChar, email)
             .query(`
@@ -99,10 +160,9 @@ app.post('/api/auth/login', async (req, res) => {
         
         let usuario = result.recordset[0];
         
-        // Si no existe y es estudiante, crear demo
         if (!usuario && role === 'student') {
             const insertResult = await pool.request()
-                .input('nombre', sql.NVarChar, 'Estudiante Demo')
+                .input('nombre', sql.NVarChar, email.split('@')[0])
                 .input('email', sql.NVarChar, email)
                 .input('id_rol', sql.Int, 1)
                 .query(`
@@ -113,7 +173,6 @@ app.post('/api/auth/login', async (req, res) => {
             
             const newUserId = insertResult.recordset[0].id_usuario;
             
-            // Crear estudiante asociado
             await pool.request()
                 .input('id_usuario', sql.Int, newUserId)
                 .input('carnet', sql.NVarChar, `DEMO${newUserId}`)
@@ -124,7 +183,7 @@ app.post('/api/auth/login', async (req, res) => {
             
             usuario = {
                 id_usuario: newUserId,
-                nombre: 'Estudiante Demo',
+                nombre: email.split('@')[0],
                 correo_institucional: email,
                 estado: 'Activo',
                 rol_nombre: 'Estudiante',
@@ -136,27 +195,11 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(401).json({ error: 'Credenciales inválidas' });
         }
         
-        if (usuario.estado !== 'Activo') {
-            return res.status(401).json({ error: 'Usuario inactivo' });
-        }
-        
-        // Generar token JWT
         const token = jwt.sign(
-            { 
-                id_usuario: usuario.id_usuario, 
-                nombre: usuario.nombre, 
-                rol: usuario.rol_nombre,
-                id_rol: usuario.id_rol
-            },
-            process.env.JWT_SECRET,
+            { id_usuario: usuario.id_usuario, nombre: usuario.nombre, rol: usuario.rol_nombre, id_rol: usuario.id_rol },
+            process.env.JWT_SECRET || 'unimatricula_secret_2025',
             { expiresIn: '8h' }
         );
-        
-        // Registrar en auditoría
-        await pool.request()
-            .input('id_usuario', sql.Int, usuario.id_usuario)
-            .input('accion', sql.NVarChar, 'Inicio de sesión exitoso')
-            .query(`INSERT INTO Auditoria (id_usuario, accion, fecha) VALUES (@id_usuario, @accion, GETDATE())`);
         
         res.json({
             success: true,
@@ -172,13 +215,16 @@ app.post('/api/auth/login', async (req, res) => {
         
     } catch (error) {
         console.error('Error en login:', error);
-        res.status(500).json({ error: 'Error en el servidor' });
+        res.status(500).json({ error: error.message });
     }
 });
 
-// Obtener estudiante actual
 app.get('/api/auth/estudiante', verificarToken, async (req, res) => {
     try {
+        if (!pool) {
+            return res.status(503).json({ error: 'Base de datos no disponible' });
+        }
+        
         const result = await pool.request()
             .input('id_usuario', sql.Int, req.usuario.id_usuario)
             .query(`
@@ -201,69 +247,25 @@ app.get('/api/auth/estudiante', verificarToken, async (req, res) => {
     }
 });
 
-// ==================== API DE DASHBOARD ====================
-
-app.get('/api/dashboard/stats', verificarToken, async (req, res) => {
-    try {
-        const { id_rol, id_usuario } = req.usuario;
-        
-        if (id_rol === 1) { // Estudiante
-            const estudianteResult = await pool.request()
-                .input('id_usuario', sql.Int, id_usuario)
-                .query(`SELECT id_estudiante FROM Estudiante WHERE id_usuario = @id_usuario`);
-            
-            if (estudianteResult.recordset.length === 0) {
-                return res.json({ matriculas: 0, creditos: 0, deuda: 0 });
-            }
-            
-            const id_estudiante = estudianteResult.recordset[0].id_estudiante;
-            
-            const stats = await pool.request()
-                .input('id_estudiante', sql.Int, id_estudiante)
-                .query(`
-                    SELECT 
-                        COUNT(DISTINCT m.id_matricula) as total_matriculas,
-                        SUM(c.creditos) as total_creditos,
-                        ISNULL((SELECT SUM(monto) FROM Factura WHERE id_estudiante = @id_estudiante AND estado = 'Pendiente'), 0) as deuda
-                    FROM Matricula m
-                    JOIN Seccion s ON m.id_seccion = s.id_seccion
-                    JOIN Curso c ON s.id_curso = c.id_curso
-                    WHERE m.id_estudiante = @id_estudiante AND m.estado = 'Confirmada'
-                `);
-            
-            res.json(stats.recordset[0]);
-            
-        } else { // Admin
-            const stats = await pool.request()
-                .query(`
-                    SELECT 
-                        (SELECT COUNT(*) FROM Estudiante) as total_estudiantes,
-                        (SELECT COUNT(*) FROM Matricula) as total_matriculas,
-                        ISNULL((SELECT SUM(monto) FROM Factura WHERE estado = 'Pagada'), 0) as total_ingresos
-                `);
-            res.json(stats.recordset[0]);
-        }
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// ==================== API DE OFERTA ACADÉMICA ====================
-
+// ==================== API DE OFERTA ====================
 app.get('/api/oferta/secciones', verificarToken, async (req, res) => {
     try {
+        if (!pool) {
+            return res.status(503).json({ error: 'Base de datos no disponible' });
+        }
+        
         const { periodo_id, carrera } = req.query;
         
         let query = `
             SELECT s.id_seccion, s.id_curso, s.id_periodo, s.docente, s.aula, s.horario, s.cupo,
-                   (s.cupo - COUNT(m.id_matricula)) as disponibles,
+                   ISNULL(s.cupo - COUNT(m.id_matricula), s.cupo) as disponibles,
                    c.codigo, c.nombre as curso_nombre, c.creditos,
                    p.nombre as programa_nombre
             FROM Seccion s
             JOIN Curso c ON s.id_curso = c.id_curso
             JOIN ProgramaAcademico p ON c.id_programa = p.id_programa
             LEFT JOIN Matricula m ON s.id_seccion = m.id_seccion AND m.estado IN ('Pendiente', 'Confirmada')
-            WHERE s.id_periodo = @periodo_id
+            WHERE (@periodo_id IS NULL OR s.id_periodo = @periodo_id)
         `;
         
         const request = pool.request();
@@ -280,402 +282,194 @@ app.get('/api/oferta/secciones', verificarToken, async (req, res) => {
         res.json(result.recordset);
         
     } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/api/oferta/seccion', verificarToken, verificarRol(['AdminTI']), async (req, res) => {
-    try {
-        const { id_curso, id_periodo, docente, aula, horario, cupo, id_seccion } = req.body;
-        
-        if (id_seccion) {
-            // Actualizar
-            await pool.request()
-                .input('id_seccion', sql.Int, id_seccion)
-                .input('id_curso', sql.Int, id_curso)
-                .input('id_periodo', sql.Int, id_periodo)
-                .input('docente', sql.NVarChar, docente)
-                .input('aula', sql.NVarChar, aula)
-                .input('horario', sql.NVarChar, horario)
-                .input('cupo', sql.Int, cupo)
-                .query(`
-                    UPDATE Seccion SET 
-                        id_curso = @id_curso, id_periodo = @id_periodo,
-                        docente = @docente, aula = @aula, horario = @horario, cupo = @cupo
-                    WHERE id_seccion = @id_seccion
-                `);
-        } else {
-            // Crear nueva
-            await pool.request()
-                .input('id_curso', sql.Int, id_curso)
-                .input('id_periodo', sql.Int, id_periodo)
-                .input('docente', sql.NVarChar, docente)
-                .input('aula', sql.NVarChar, aula)
-                .input('horario', sql.NVarChar, horario)
-                .input('cupo', sql.Int, cupo)
-                .query(`
-                    INSERT INTO Seccion (id_curso, id_periodo, docente, aula, horario, cupo)
-                    VALUES (@id_curso, @id_periodo, @docente, @aula, @horario, @cupo)
-                `);
-        }
-        
-        await registrarAuditoriaAPI(req.usuario.id_usuario, `Creó/Editó sección`);
-        res.json({ success: true });
-        
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.delete('/api/oferta/seccion/:id', verificarToken, verificarRol(['AdminTI']), async (req, res) => {
-    try {
-        const { id } = req.params;
-        
-        // Verificar que no tenga matrículas
-        const check = await pool.request()
-            .input('id_seccion', sql.Int, id)
-            .query(`SELECT COUNT(*) as total FROM Matricula WHERE id_seccion = @id_seccion`);
-        
-        if (check.recordset[0].total > 0) {
-            return res.status(400).json({ error: 'No se puede eliminar la sección porque tiene matrículas asociadas' });
-        }
-        
-        await pool.request()
-            .input('id_seccion', sql.Int, id)
-            .query(`DELETE FROM Seccion WHERE id_seccion = @id_seccion`);
-        
-        await registrarAuditoriaAPI(req.usuario.id_usuario, `Eliminó sección ${id}`);
-        res.json({ success: true });
-        
-    } catch (error) {
+        console.error('Error en /oferta/secciones:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
 // ==================== API DE MATRÍCULAS ====================
-
-app.get('/api/matriculas/mis', verificarToken, async (req, res) => {
-    try {
-        const estudianteResult = await pool.request()
-            .input('id_usuario', sql.Int, req.usuario.id_usuario)
-            .query(`SELECT id_estudiante FROM Estudiante WHERE id_usuario = @id_usuario`);
-        
-        if (estudianteResult.recordset.length === 0) {
-            return res.json([]);
-        }
-        
-        const result = await pool.request()
-            .input('id_estudiante', sql.Int, estudianteResult.recordset[0].id_estudiante)
-            .query(`
-                SELECT m.id_matricula, m.fecha, m.estado,
-                       s.id_seccion, s.horario, s.aula, s.docente,
-                       c.id_curso, c.codigo, c.nombre as curso_nombre, c.creditos,
-                       p.nombre as periodo_nombre
-                FROM Matricula m
-                JOIN Seccion s ON m.id_seccion = s.id_seccion
-                JOIN Curso c ON s.id_curso = c.id_curso
-                JOIN Periodo p ON s.id_periodo = p.id_periodo
-                WHERE m.id_estudiante = @id_estudiante
-                ORDER BY m.fecha DESC
-            `);
-        
-        res.json(result.recordset);
-        
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
 app.post('/api/matriculas', verificarToken, async (req, res) => {
     try {
-        const { secciones_ids } = req.body;
-        
-        if (!secciones_ids || secciones_ids.length === 0) {
-            return res.status(400).json({ error: 'Debe seleccionar al menos una sección' });
+        if (!pool) {
+            return res.status(503).json({ error: 'Base de datos no disponible' });
         }
         
-        // Obtener estudiante
-        const estudianteResult = await pool.request()
-            .input('id_usuario', sql.Int, req.usuario.id_usuario)
-            .query(`SELECT id_estudiante FROM Estudiante WHERE id_usuario = @id_usuario`);
+        const { id_seccion, id_estudiante } = req.body;
         
-        if (estudianteResult.recordset.length === 0) {
-            return res.status(400).json({ error: 'No se encontró información del estudiante' });
-        }
-        
-        const id_estudiante = estudianteResult.recordset[0].id_estudiante;
-        
-        // Verificar deuda
-        const deudaResult = await pool.request()
-            .input('id_estudiante', sql.Int, id_estudiante)
-            .query(`SELECT SUM(monto) as deuda FROM Factura WHERE id_estudiante = @id_estudiante AND estado = 'Pendiente'`);
-        
-        if (deudaResult.recordset[0].deuda > 0) {
-            return res.status(400).json({ error: 'No puede matricularse porque tiene una deuda pendiente' });
-        }
-        
-        let totalCreditos = 0;
-        const matriculasCreadas = [];
-        
-        for (const id_seccion of secciones_ids) {
-            // Verificar cupo
-            const cupoResult = await pool.request()
-                .input('id_seccion', sql.Int, id_seccion)
-                .query(`
-                    SELECT s.cupo, COUNT(m.id_matricula) as inscritos
-                    FROM Seccion s
-                    LEFT JOIN Matricula m ON s.id_seccion = m.id_seccion AND m.estado IN ('Pendiente', 'Confirmada')
-                    WHERE s.id_seccion = @id_seccion
-                    GROUP BY s.cupo
-                `);
-            
-            if (cupoResult.recordset.length > 0) {
-                const disponibles = cupoResult.recordset[0].cupo - cupoResult.recordset[0].inscritos;
-                if (disponibles <= 0) {
-                    return res.status(400).json({ error: `No hay cupos disponibles para una de las secciones seleccionadas` });
-                }
-            }
-            
-            // Obtener créditos del curso
-            const cursoResult = await pool.request()
-                .input('id_seccion', sql.Int, id_seccion)
-                .query(`
-                    SELECT c.creditos FROM Seccion s
-                    JOIN Curso c ON s.id_curso = c.id_curso
-                    WHERE s.id_seccion = @id_seccion
-                `);
-            
-            if (cursoResult.recordset.length > 0) {
-                totalCreditos += cursoResult.recordset[0].creditos;
-            }
-            
-            // Crear matrícula
-            const insertResult = await pool.request()
-                .input('id_estudiante', sql.Int, id_estudiante)
-                .input('id_seccion', sql.Int, id_seccion)
-                .input('fecha', sql.Date, new Date())
-                .query(`
-                    INSERT INTO Matricula (id_estudiante, id_seccion, fecha, estado)
-                    VALUES (@id_estudiante, @id_seccion, @fecha, 'Pendiente');
-                    SELECT SCOPE_IDENTITY() as id_matricula;
-                `);
-            
-            matriculasCreadas.push(insertResult.recordset[0].id_matricula);
-        }
-        
-        // Calcular monto y crear factura
-        const monto = totalCreditos * 60000;
-        const facturaResult = await pool.request()
-            .input('id_estudiante', sql.Int, id_estudiante)
-            .input('monto', sql.Decimal(10,2), monto)
-            .input('fecha_emision', sql.Date, new Date())
+        // Verificar cupo disponible
+        const cupoCheck = await pool.request()
+            .input('id_seccion', sql.Int, id_seccion)
             .query(`
-                INSERT INTO Factura (id_estudiante, monto, fecha_emision, estado)
-                VALUES (@id_estudiante, @monto, @fecha_emision, 'Pendiente');
-                SELECT SCOPE_IDENTITY() as id_factura;
+                SELECT s.cupo, COUNT(m.id_matricula) as matriculados
+                FROM Seccion s
+                LEFT JOIN Matricula m ON s.id_seccion = m.id_seccion AND m.estado IN ('Pendiente', 'Confirmada')
+                WHERE s.id_seccion = @id_seccion
+                GROUP BY s.cupo
             `);
         
-        await registrarAuditoriaAPI(req.usuario.id_usuario, `Realizó matrícula con ${secciones_ids.length} cursos`);
+        if (cupoCheck.recordset.length > 0) {
+            const disponibles = cupoCheck.recordset[0].cupo - cupoCheck.recordset[0].matriculados;
+            if (disponibles <= 0) {
+                return res.status(400).json({ error: 'No hay cupos disponibles' });
+            }
+        }
+        
+        // Crear matrícula
+        const result = await pool.request()
+            .input('id_estudiante', sql.Int, id_estudiante)
+            .input('id_seccion', sql.Int, id_seccion)
+            .input('estado', sql.NVarChar, 'Pendiente')
+            .query(`
+                INSERT INTO Matricula (id_estudiante, id_seccion, fecha_matricula, estado)
+                VALUES (@id_estudiante, @id_seccion, GETDATE(), @estado);
+                SELECT SCOPE_IDENTITY() as id_matricula;
+            `);
         
         res.json({ 
             success: true, 
-            id_matriculas: matriculasCreadas,
-            id_factura: facturaResult.recordset[0].id_factura,
-            monto_total: monto
+            id_matricula: result.recordset[0].id_matricula,
+            message: 'Matrícula registrada exitosamente'
         });
         
     } catch (error) {
-        console.error('Error en matrícula:', error);
+        console.error('Error en /matriculas:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
 // ==================== API DE PAGOS ====================
-
 app.get('/api/pagos/mis-facturas', verificarToken, async (req, res) => {
     try {
-        const estudianteResult = await pool.request()
-            .input('id_usuario', sql.Int, req.usuario.id_usuario)
-            .query(`SELECT id_estudiante FROM Estudiante WHERE id_usuario = @id_usuario`);
-        
-        if (estudianteResult.recordset.length === 0) {
-            return res.json([]);
+        if (!pool) {
+            return res.status(503).json({ error: 'Base de datos no disponible' });
         }
         
+        const { id_estudiante } = req.query;
+        
         const result = await pool.request()
-            .input('id_estudiante', sql.Int, estudianteResult.recordset[0].id_estudiante)
+            .input('id_estudiante', sql.Int, id_estudiante)
             .query(`
-                SELECT f.id_factura, f.monto, f.fecha_emision, f.estado,
-                       (SELECT SUM(p.monto) FROM Pago p WHERE p.id_factura = f.id_factura) as pagado
-                FROM Factura f
-                WHERE f.id_estudiante = @id_estudiante
-                ORDER BY f.fecha_emision DESC
+                SELECT id_factura, monto, fecha_emision, fecha_vencimiento, estado
+                FROM Factura
+                WHERE id_estudiante = @id_estudiante
+                ORDER BY fecha_vencimiento ASC
             `);
         
         res.json(result.recordset);
         
     } catch (error) {
+        console.error('Error en /pagos/mis-facturas:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
 app.post('/api/pagos/procesar', verificarToken, async (req, res) => {
     try {
-        const { id_factura, metodo, referencia } = req.body;
-        
-        // Obtener factura
-        const facturaResult = await pool.request()
-            .input('id_factura', sql.Int, id_factura)
-            .query(`SELECT id_estudiante, monto, estado FROM Factura WHERE id_factura = @id_factura`);
-        
-        if (facturaResult.recordset.length === 0) {
-            return res.status(404).json({ error: 'Factura no encontrada' });
+        if (!pool) {
+            return res.status(503).json({ error: 'Base de datos no disponible' });
         }
         
-        const factura = facturaResult.recordset[0];
+        const { id_factura, monto_pagado } = req.body;
         
-        if (factura.estado === 'Pagada') {
-            return res.status(400).json({ error: 'La factura ya fue pagada' });
+        const result = await pool.request()
+            .input('id_factura', sql.Int, id_factura)
+            .input('monto_pagado', sql.Decimal(10,2), monto_pagado)
+            .input('fecha_pago', sql.DateTime, new Date())
+            .query(`
+                UPDATE Factura 
+                SET estado = 'Pagada', 
+                    fecha_pago = @fecha_pago
+                WHERE id_factura = @id_factura AND monto = @monto_pagado;
+                
+                SELECT @@ROWCOUNT as filas_afectadas;
+            `);
+        
+        if (result.recordset[0].filas_afectadas > 0) {
+            res.json({ success: true, message: 'Pago procesado exitosamente' });
+        } else {
+            res.status(400).json({ error: 'No se pudo procesar el pago' });
         }
-        
-        // Registrar pago
-        await pool.request()
-            .input('id_factura', sql.Int, id_factura)
-            .input('fecha', sql.Date, new Date())
-            .input('monto', sql.Decimal(10,2), factura.monto)
-            .input('metodo', sql.NVarChar, metodo)
-            .query(`
-                INSERT INTO Pago (id_factura, fecha, monto, metodo)
-                VALUES (@id_factura, @fecha, @monto, @metodo)
-            `);
-        
-        // Actualizar factura
-        await pool.request()
-            .input('id_factura', sql.Int, id_factura)
-            .query(`UPDATE Factura SET estado = 'Pagada' WHERE id_factura = @id_factura`);
-        
-        // Actualizar matrículas pendientes a confirmadas
-        const estudiante = factura.id_estudiante;
-        await pool.request()
-            .input('id_estudiante', sql.Int, estudiante)
-            .query(`
-                UPDATE Matricula SET estado = 'Confirmada' 
-                WHERE id_estudiante = @id_estudiante AND estado = 'Pendiente'
-            `);
-        
-        await registrarAuditoriaAPI(req.usuario.id_usuario, `Realizó pago de factura ${id_factura}`);
-        
-        res.json({ success: true, message: 'Pago procesado exitosamente' });
         
     } catch (error) {
-        console.error('Error en pago:', error);
+        console.error('Error en /pagos/procesar:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
 // ==================== API DE REPORTES ====================
-
-app.get('/api/reportes/matriculas', verificarToken, verificarRol(['AdminTI', 'Registro']), async (req, res) => {
+app.get('/api/reportes/matriculas', verificarToken, verificarRol(['Administrador', 'Coordinador']), async (req, res) => {
     try {
-        const result = await pool.request().query(`
-            SELECT m.id_matricula, u.nombre as estudiante, e.carnet, c.codigo as curso, 
-                   m.fecha, m.estado, p.nombre as periodo
-            FROM Matricula m
-            JOIN Estudiante e ON m.id_estudiante = e.id_estudiante
-            JOIN Usuario u ON e.id_usuario = u.id_usuario
-            JOIN Seccion s ON m.id_seccion = s.id_seccion
-            JOIN Curso c ON s.id_curso = c.id_curso
-            JOIN Periodo p ON s.id_periodo = p.id_periodo
-            ORDER BY m.fecha DESC
-        `);
+        if (!pool) {
+            return res.status(503).json({ error: 'Base de datos no disponible' });
+        }
+        
+        const result = await pool.request()
+            .query(`
+                SELECT p.nombre as periodo, 
+                       COUNT(m.id_matricula) as total_matriculas,
+                       COUNT(DISTINCT m.id_estudiante) as total_estudiantes
+                FROM Matricula m
+                JOIN Seccion s ON m.id_seccion = s.id_seccion
+                JOIN PeriodoAcademico p ON s.id_periodo = p.id_periodo
+                GROUP BY p.nombre, p.id_periodo
+                ORDER BY p.id_periodo DESC
+            `);
+        
         res.json(result.recordset);
+        
     } catch (error) {
+        console.error('Error en /reportes/matriculas:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
-app.get('/api/reportes/financieros', verificarToken, verificarRol(['AdminTI', 'Tesoreria']), async (req, res) => {
+app.get('/api/reportes/financieros', verificarToken, verificarRol(['Administrador', 'Coordinador']), async (req, res) => {
     try {
-        const result = await pool.request().query(`
-            SELECT f.id_factura, u.nombre as estudiante, f.monto, f.fecha_emision, f.estado,
-                   ISNULL(p.monto, 0) as pagado, p.metodo, p.fecha as fecha_pago
-            FROM Factura f
-            JOIN Estudiante e ON f.id_estudiante = e.id_estudiante
-            JOIN Usuario u ON e.id_usuario = u.id_usuario
-            LEFT JOIN Pago p ON f.id_factura = p.id_factura
-            ORDER BY f.fecha_emision DESC
-        `);
-        res.json(result.recordset);
+        if (!pool) {
+            return res.status(503).json({ error: 'Base de datos no disponible' });
+        }
+        
+        const result = await pool.request()
+            .query(`
+                SELECT 
+                    SUM(CASE WHEN estado = 'Pagada' THEN monto ELSE 0 END) as total_pagado,
+                    SUM(CASE WHEN estado = 'Pendiente' THEN monto ELSE 0 END) as total_pendiente,
+                    COUNT(CASE WHEN estado = 'Pagada' THEN 1 END) as facturas_pagadas,
+                    COUNT(CASE WHEN estado = 'Pendiente' THEN 1 END) as facturas_pendientes
+                FROM Factura
+            `);
+        
+        res.json(result.recordset[0]);
+        
     } catch (error) {
+        console.error('Error en /reportes/financieros:', error);
         res.status(500).json({ error: error.message });
     }
 });
-
-// ==================== API DE CATÁLOGOS ====================
-
-app.get('/api/catalogos/cursos', verificarToken, async (req, res) => {
-    try {
-        const result = await pool.request().query(`
-            SELECT c.id_curso, c.codigo, c.nombre, c.creditos, p.nombre as programa
-            FROM Curso c
-            JOIN ProgramaAcademico p ON c.id_programa = p.id_programa
-            ORDER BY c.codigo
-        `);
-        res.json(result.recordset);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.get('/api/catalogos/periodos', verificarToken, async (req, res) => {
-    try {
-        const result = await pool.request().query(`
-            SELECT id_periodo, nombre, fecha_inicio, fecha_fin, estado
-            FROM Periodo
-            ORDER BY fecha_inicio DESC
-        `);
-        res.json(result.recordset);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.get('/api/catalogos/programas', verificarToken, async (req, res) => {
-    try {
-        const result = await pool.request().query(`
-            SELECT id_programa, nombre, nivel
-            FROM ProgramaAcademico
-        `);
-        res.json(result.recordset);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// ==================== UTILIDADES ====================
-
-async function registrarAuditoriaAPI(id_usuario, accion) {
-    try {
-        await pool.request()
-            .input('id_usuario', sql.Int, id_usuario)
-            .input('accion', sql.NVarChar, accion)
-            .query(`INSERT INTO Auditoria (id_usuario, accion, fecha) VALUES (@id_usuario, @accion, GETDATE())`);
-    } catch (error) {
-        console.error('Error registrando auditoría:', error);
-    }
-}
 
 // ==================== INICIAR SERVIDOR ====================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`🚀 Servidor API corriendo en http://localhost:${PORT}`);
-    console.log(`📡 Endpoints disponibles:`);
-    console.log(`   POST   /api/auth/login`);
-    console.log(`   GET    /api/dashboard/stats`);
-    console.log(`   GET    /api/oferta/secciones`);
-    console.log(`   POST   /api/matriculas`);
-    console.log(`   GET    /api/pagos/mis-facturas`);
-    console.log(`   POST   /api/pagos/procesar`);
-    console.log(`   GET    /api/reportes/matriculas`);
-    console.log(`   GET    /api/reportes/financieros`);
+    console.log(`\n🚀 Servidor API corriendo en http://localhost:${PORT}`);
+    console.log(`📋 Endpoints disponibles:`);
+    console.log(`   GET    /api/health - Verificar estado`);
+    console.log(`   POST   /api/auth/login - Iniciar sesión`);
+    console.log(`   GET    /api/auth/estudiante - Info estudiante`);
+    console.log(`   GET    /api/oferta/secciones - Ver oferta académica`);
+    console.log(`   POST   /api/matriculas - Registrar matrícula`);
+    console.log(`   GET    /api/pagos/mis-facturas - Ver facturas`);
+    console.log(`   POST   /api/pagos/procesar - Procesar pago`);
+    console.log(`   GET    /api/reportes/matriculas - Reporte matrículas`);
+    console.log(`   GET    /api/reportes/financieros - Reporte financiero`);
+    console.log(`\n🔗 Probar conexión: http://localhost:${PORT}/api/health\n`);
+});
+
+// Manejar cierre graceful
+process.on('SIGINT', async () => {
+    console.log('\n🛑 Cerrando servidor...');
+    if (pool) {
+        await pool.close();
+        console.log('✅ Conexión a BD cerrada');
+    }
+    process.exit(0);
 });

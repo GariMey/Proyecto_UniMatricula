@@ -5,8 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>UniMatricula - Sistema de Matrícula Universitaria</title>
 <link rel="stylesheet" href="css/styles.css">
-<!-- Librerías adicionales -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -100,7 +99,7 @@
           </div>
           <div class="table-responsive">
             <table id="my-courses-table">
-              <thead><tr><th>Código</th><th>Curso</th><th>Horario</th><th>Aula</th><th>Docente</th><th>Estado</th><th>Acciones</th></tr></thead>
+              <thead><tr><th>Código</th><th>Curso</th><th>Horario</th><th>Aula</th><th>Docente</th><th>Estado</th></tr></thead>
               <tbody id="my-courses-tbody"></tbody>
             </table>
           </div>
@@ -249,7 +248,7 @@
     <div class="modal-field"><label>Seleccionar Secciones (máx 18 créditos)</label>
       <div class="course-list" id="seccion-list-modal"></div>
     </div>
-    <div class="modal-footer"><button class="btn-cancel" onclick="closeMods()">Cancelar</button><button class="btn-confirm blue" onclick="confirmarMatricula()">Confirmar Matrícula</button></div>
+    <div class="modal-footer"><button class="btn-cancel" onclick="closeMods()">Cancelar</button><button class="btn-confirm blue" onclick="confirmarMatriculaWrapper()">Confirmar Matrícula</button></div>
   </div>
 </div>
 
