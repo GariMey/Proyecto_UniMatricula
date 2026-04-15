@@ -10,7 +10,7 @@ async function testAllConfigurations() {
             config: {
                 server: 'Garita',
                 port: 1433,
-                database: 'Matricula',
+                database: 'MatriculaUNI',
                 user: 'sa',
                 password: '1234',  // Prueba con '1234' o la contraseña que uses
                 options: {
@@ -24,7 +24,7 @@ async function testAllConfigurations() {
             name: 'SQL Auth - Garita\\PRINCIPAL con sa',
             config: {
                 server: 'Garita\\PRINCIPAL',
-                database: 'Matricula',
+                database: 'MatriculaUNI',
                 user: 'sa',
                 password: '1234',
                 options: {
@@ -39,7 +39,7 @@ async function testAllConfigurations() {
             config: {
                 server: 'localhost',
                 port: 1433,
-                database: 'Matricula',
+                database: 'MatriculaUNI',
                 user: 'sa',
                 password: '1234',
                 options: {
@@ -53,7 +53,7 @@ async function testAllConfigurations() {
             name: 'Windows Auth - Garita (sin puerto)',
             config: {
                 server: 'Garita',
-                database: 'Matricula',
+                database: 'MatriculaUNI',
                 options: {
                     trustedConnection: true,
                     trustServerCertificate: true,
@@ -66,7 +66,7 @@ async function testAllConfigurations() {
             name: 'Windows Auth - Garita\\PRINCIPAL',
             config: {
                 server: 'Garita\\PRINCIPAL',
-                database: 'Matricula',
+                database: 'MatriculaUNI',
                 options: {
                     trustedConnection: true,
                     trustServerCertificate: true,
@@ -79,7 +79,7 @@ async function testAllConfigurations() {
             name: 'Windows Auth - localhost\\PRINCIPAL',
             config: {
                 server: 'localhost\\PRINCIPAL',
-                database: 'Matricula',
+                database: 'MatriculaUNI',
                 options: {
                     trustedConnection: true,
                     trustServerCertificate: true,
