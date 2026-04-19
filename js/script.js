@@ -1,4 +1,3 @@
-
 let currentUser = null;
 let currentEstudiante = null;
 let currentPeriodoId = 1;
@@ -51,7 +50,8 @@ async function doLoginWithSSO() {
 async function doManualLogin() {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
-    const role = document.getElementById('login-role').value;
+    const roleEl = document.getElementById('login-role');
+    const role = roleEl ? roleEl.value : '';
     
     if (!email || !password) {
         toast('❌ Ingrese correo y contraseña', '#ef4444');
@@ -906,7 +906,61 @@ async function eliminarUsuarioAdmin(idUsuario) {
 }
 
 function showUserModal() {
-    toast('📝 Función de creación de usuarios en desarrollo', '#3b82f6');
+    // Limpiar campos del formulario
+    document.getElementById('u-nombre').value = '';
+    document.getElementById('u-email').value = '';
+    document.getElementById('u-carnet').value = '';
+    document.getElementById('u-carrera').value = '';
+    document.getElementById('u-rol').value = 'student';
+    document.getElementById('u-password').value = '';
+    document.getElementById('u-confirm-password').value = '';
+    document.getElementById('usuario-modal-title').textContent = '➕ Nuevo Usuario';
+    openMod('modal-usuario');
+}
+
+async function guardarUsuario() {
+    const nombre = document.getElementById('u-nombre').value.trim();
+    const email = document.getElementById('u-email').value.trim();
+    const carnet = document.getElementById('u-carnet').value.trim();
+    const carrera = document.getElementById('u-carrera').value;
+    const rol = document.getElementById('u-rol').value;
+    const password = document.getElementById('u-password').value;
+    const confirmPassword = document.getElementById('u-confirm-password').value;
+
+    if (!nombre || !email || !password) {
+        toast('❌ Complete los campos obligatorios (Nombre, Correo y Contraseña)', '#ef4444');
+        return;
+    }
+
+    if (password !== confirmPassword) {
+        toast('❌ Las contraseñas no coinciden', '#ef4444');
+        return;
+    }
+
+    if (!carnet) {
+        toast('❌ El carnet es obligatorio', '#ef4444');
+        return;
+    }
+
+    try {
+        await apiRequest('/auth/register', {
+            method: 'POST',
+            body: JSON.stringify({
+                nombre,
+                email,
+                carnet,
+                password,
+                rol,
+                id_programa: carrera ? parseInt(carrera) : null
+            })
+        });
+
+        toast('✅ Usuario creado exitosamente', '#10b981');
+        closeMods();
+        loadUsuariosAdmin();
+    } catch (error) {
+        toast(`❌ Error: ${error.message}`, '#ef4444');
+    }
 }
 
 // ==================== ADMIN: SECCIONES ====================
