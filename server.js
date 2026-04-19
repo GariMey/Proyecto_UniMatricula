@@ -142,6 +142,89 @@ app.get('/api/carreras', async (req, res) => {
     }
 });
 
+// ==================== API DE CURSOS Y PERIODOS ====================
+app.get('/api/cursos', async (req, res) => {
+    try {
+        if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' });
+        const result = await pool.request()
+            .query(`
+                SELECT c.id_curso, c.codigo, c.nombre, c.creditos, c.costo_credito, c.id_programa,
+                       p.nombre as programa_nombre
+                FROM Curso c
+                LEFT JOIN ProgramaAcademico p ON c.id_programa = p.id_programa
+                ORDER BY c.codigo
+            `);
+        res.json(result.recordset);
+    } catch (error) {
+        console.error('Error en /cursos:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.get('/api/periodos', async (req, res) => {
+    try {
+        if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' });
+        const result = await pool.request()
+            .query('SELECT id_periodo, nombre, anio, fecha_inicio, fecha_fin, activo FROM PeriodoAcademico ORDER BY anio DESC, id_periodo DESC');
+        res.json(result.recordset);
+    } catch (error) {
+        console.error('Error en /periodos:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+
+app.post('/api/admin/cursos', async (req, res) => {
+    try {
+        if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' });
+        const { codigo, nombre, creditos, costo_credito, horas_semana, id_programa } = req.body;
+        if (!codigo || !nombre || !creditos || !costo_credito) {
+            return res.status(400).json({ error: 'Campos obligatorios: codigo, nombre, creditos, costo_credito' });
+        }
+        const result = await pool.request()
+            .input('codigo', sql.NVarChar, codigo)
+            .input('nombre', sql.NVarChar, nombre)
+            .input('creditos', sql.Int, creditos)
+            .input('costo_credito', sql.Decimal(10,2), costo_credito)
+            .input('horas_semana', sql.Int, horas_semana || null)
+            .input('id_programa', sql.Int, id_programa || null)
+            .query(`
+                INSERT INTO Curso (codigo, nombre, creditos, costo_credito, horas_semana, id_programa)
+                VALUES (@codigo, @nombre, @creditos, @costo_credito, @horas_semana, @id_programa);
+                SELECT SCOPE_IDENTITY() as id_curso;
+            `);
+        res.json({ success: true, id_curso: result.recordset[0].id_curso });
+    } catch (error) {
+        console.error('Error creando curso:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+
+app.post('/api/admin/periodos', async (req, res) => {
+    try {
+        if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' });
+        const { nombre, anio, fecha_inicio, fecha_fin } = req.body;
+        if (!nombre || !anio || !fecha_inicio || !fecha_fin) {
+            return res.status(400).json({ error: 'Todos los campos son obligatorios' });
+        }
+        const result = await pool.request()
+            .input('nombre', sql.NVarChar, nombre)
+            .input('anio', sql.Int, anio)
+            .input('fecha_inicio', sql.Date, fecha_inicio)
+            .input('fecha_fin', sql.Date, fecha_fin)
+            .query(`
+                INSERT INTO PeriodoAcademico (nombre, anio, fecha_inicio, fecha_fin, activo)
+                VALUES (@nombre, @anio, @fecha_inicio, @fecha_fin, 1);
+                SELECT SCOPE_IDENTITY() as id_periodo;
+            `);
+        res.json({ success: true, id_periodo: result.recordset[0].id_periodo });
+    } catch (error) {
+        console.error('Error creando periodo:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // ==================== API DE AUTENTICACIÓN ====================
 app.post('/api/auth/login', async (req, res) => {
     try {
@@ -158,44 +241,10 @@ app.post('/api/auth/login', async (req, res) => {
                        r.nombre as rol_nombre, r.id_rol
                 FROM Usuario u
                 JOIN Rol r ON u.id_rol = r.id_rol
-                WHERE u.correo_institucional = @email
+                WHERE u.correo_institucional = @email AND u.estado = 'Activo'
             `);
         
         let usuario = result.recordset[0];
-        
-        if (!usuario && role === 'student') {
-            const hashedPassword = await bcrypt.hash(password || 'default123', 10);
-            
-            const insertResult = await pool.request()
-                .input('nombre', sql.NVarChar, email.split('@')[0])
-                .input('email', sql.NVarChar, email)
-                .input('password', sql.NVarChar, hashedPassword)
-                .input('id_rol', sql.Int, 1)
-                .query(`
-                    INSERT INTO Usuario (nombre, correo_institucional, contrasena_hash, id_rol, estado)
-                    VALUES (@nombre, @email, @password, @id_rol, 'Activo');
-                    SELECT SCOPE_IDENTITY() as id_usuario;
-                `);
-            
-            const newUserId = insertResult.recordset[0].id_usuario;
-            
-            await pool.request()
-                .input('id_usuario', sql.Int, newUserId)
-                .input('carnet', sql.NVarChar, `DEMO${newUserId}`)
-                .query(`
-                    INSERT INTO Estudiante (id_usuario, carnet, estado_academico)
-                    VALUES (@id_usuario, @carnet, 'Activo')
-                `);
-            
-            usuario = {
-                id_usuario: newUserId,
-                nombre: email.split('@')[0],
-                correo_institucional: email,
-                estado: 'Activo',
-                rol_nombre: 'Estudiante',
-                id_rol: 1
-            };
-        }
         
         if (!usuario) {
             return res.status(401).json({ error: 'Credenciales inválidas' });
@@ -231,7 +280,8 @@ app.post('/api/auth/register', async (req, res) => {
             return res.status(503).json({ error: 'Base de datos no disponible' });
         }
         
-        const { nombre, email, carnet, password, id_programa } = req.body;
+        const { nombre, email, carnet, password, id_programa, rol } = req.body;
+        const rolId = (rol === 'admin') ? 2 : 1;
         
         const existingUser = await pool.request()
             .input('email', sql.NVarChar, email)
@@ -247,7 +297,7 @@ app.post('/api/auth/register', async (req, res) => {
             .input('nombre', sql.NVarChar, nombre)
             .input('email', sql.NVarChar, email)
             .input('password', sql.NVarChar, hashedPassword)
-            .input('id_rol', sql.Int, 1)
+            .input('id_rol', sql.Int, rolId)
             .query(`
                 INSERT INTO Usuario (nombre, correo_institucional, contrasena_hash, id_rol, estado)
                 VALUES (@nombre, @email, @password, @id_rol, 'Activo');
@@ -256,14 +306,16 @@ app.post('/api/auth/register', async (req, res) => {
         
         const newUserId = insertResult.recordset[0].id_usuario;
         
-        await pool.request()
-            .input('id_usuario', sql.Int, newUserId)
-            .input('carnet', sql.NVarChar, carnet)
-            .input('id_programa', sql.Int, id_programa || 1)
-            .query(`
-                INSERT INTO Estudiante (id_usuario, carnet, estado_academico, id_programa)
-                VALUES (@id_usuario, @carnet, 'Activo', @id_programa)
-            `);
+        if (rolId === 1) {
+            await pool.request()
+                .input('id_usuario', sql.Int, newUserId)
+                .input('carnet', sql.NVarChar, carnet || `ADM${newUserId}`)
+                .input('id_programa', sql.Int, id_programa || null)
+                .query(`
+                    INSERT INTO Estudiante (id_usuario, carnet, estado_academico, id_programa)
+                    VALUES (@id_usuario, @carnet, 'Activo', @id_programa)
+                `);
+        }
         
         res.json({ success: true, message: 'Usuario registrado exitosamente' });
         
@@ -311,7 +363,7 @@ app.get('/api/oferta/secciones', verificarToken, async (req, res) => {
         const { periodo_id } = req.query;
         
         const result = await pool.request()
-            .input('periodo_id', sql.Int, periodo_id || 1)
+            .input('periodo_id', sql.Int, periodo_id ? parseInt(periodo_id) : null)
             .query(`
                 SELECT s.id_seccion, s.id_curso, s.id_periodo, s.docente, s.aula, s.horario, s.cupo, s.numero_seccion,
                        ISNULL(s.cupo - (
@@ -350,10 +402,12 @@ app.get('/api/matriculas/mis-matriculas', verificarToken, async (req, res) => {
                 SELECT m.id_matricula, m.id_seccion, m.fecha_matricula, m.estado,
                        c.id_curso, c.codigo, c.nombre as curso_nombre, c.creditos,
                        s.docente, s.aula, s.horario,
-                       (c.creditos * c.costo_credito) as monto
+                       (c.creditos * c.costo_credito) as monto,
+                       pa.nombre as periodo_nombre, pa.anio as periodo_anio
                 FROM Matricula m
                 JOIN Seccion s ON m.id_seccion = s.id_seccion
                 JOIN Curso c ON s.id_curso = c.id_curso
+                JOIN PeriodoAcademico pa ON s.id_periodo = pa.id_periodo
                 JOIN Estudiante e ON m.id_estudiante = e.id_estudiante
                 JOIN Usuario u ON e.id_usuario = u.id_usuario
                 WHERE u.id_usuario = @id_usuario AND m.estado != 'Cancelada'
@@ -403,7 +457,7 @@ app.post('/api/matriculas', verificarToken, async (req, res) => {
             }
         }
         
-        const yaMatriculado = await pool.request()
+        const yaMatriculadoSeccion = await pool.request()
             .input('id_estudiante', sql.Int, id_estudiante)
             .input('id_seccion', sql.Int, id_seccion)
             .query(`
@@ -411,8 +465,26 @@ app.post('/api/matriculas', verificarToken, async (req, res) => {
                 WHERE id_estudiante = @id_estudiante AND id_seccion = @id_seccion AND estado IN ('Confirmada', 'Pendiente')
             `);
         
-        if (yaMatriculado.recordset.length > 0) {
+        if (yaMatriculadoSeccion.recordset.length > 0) {
             return res.status(400).json({ error: 'Ya está matriculado en esta sección' });
+        }
+
+        const yaMatriculadoCurso = await pool.request()
+            .input('id_estudiante', sql.Int, id_estudiante)
+            .input('id_seccion', sql.Int, id_seccion)
+            .query(`
+                SELECT m.id_matricula
+                FROM Matricula m
+                JOIN Seccion s  ON m.id_seccion  = s.id_seccion
+                JOIN Seccion s2 ON s2.id_seccion = @id_seccion
+                WHERE m.id_estudiante = @id_estudiante
+                  AND s.id_curso    = s2.id_curso
+                  AND s.id_periodo  = s2.id_periodo
+                  AND m.estado IN ('Confirmada', 'Pendiente')
+            `);
+
+        if (yaMatriculadoCurso.recordset.length > 0) {
+            return res.status(400).json({ error: 'Ya está matriculado en este curso en el período actual' });
         }
         
         const cursoInfo = await pool.request()
@@ -464,11 +536,61 @@ app.delete('/api/matriculas/:id', verificarToken, async (req, res) => {
         }
         
         const id_matricula = req.params.id;
-        
+
+        const matriculaCheck = await pool.request()
+            .input('id_matricula', sql.Int, id_matricula)
+            .input('id_usuario', sql.Int, req.usuario.id_usuario)
+            .query(`
+                SELECT m.id_matricula, m.id_estudiante, m.estado
+                FROM Matricula m
+                JOIN Estudiante e ON m.id_estudiante = e.id_estudiante
+                WHERE m.id_matricula = @id_matricula AND e.id_usuario = @id_usuario
+            `);
+
+        if (matriculaCheck.recordset.length === 0) {
+            return res.status(404).json({ error: 'Matrícula no encontrada' });
+        }
+
+        const matricula = matriculaCheck.recordset[0];
+
+        const pagadoCheck = await pool.request()
+            .input('id_matricula', sql.Int, id_matricula)
+            .query(`
+                SELECT TOP 1 f.id_factura
+                FROM Factura f
+                JOIN Matricula m ON f.id_estudiante = m.id_estudiante
+                JOIN Pago p ON p.id_factura = f.id_factura
+                WHERE m.id_matricula = @id_matricula
+                  AND f.estado = 'Pagada'
+                  AND p.estado = 'Completado'
+            `);
+
+        if (pagadoCheck.recordset.length > 0) {
+            return res.status(400).json({ error: 'No se puede cancelar la matrícula porque el curso ya fue pagado' });
+        }
+
+
         await pool.request()
             .input('id_matricula', sql.Int, id_matricula)
             .query(`
                 UPDATE Matricula SET estado = 'Cancelada' WHERE id_matricula = @id_matricula
+            `);
+
+        await pool.request()
+            .input('id_matricula', sql.Int, id_matricula)
+            .query(`
+                UPDATE f SET f.estado = 'Cancelada'
+                FROM Factura f
+                JOIN Matricula m ON f.id_estudiante = m.id_estudiante
+                WHERE m.id_matricula = @id_matricula
+                  AND f.estado = 'Pendiente'
+                  AND f.id_factura = (
+                      SELECT TOP 1 f2.id_factura
+                      FROM Factura f2
+                      WHERE f2.id_estudiante = m.id_estudiante
+                        AND f2.estado = 'Pendiente'
+                      ORDER BY f2.fecha_emision DESC
+                  )
             `);
         
         res.json({ success: true, message: 'Matrícula cancelada' });
@@ -591,12 +713,14 @@ app.get('/api/admin/matriculas', verificarToken, verificarRol(['Administrador'])
                        e.carnet,
                        c.nombre as curso_nombre, c.codigo, c.creditos,
                        s.docente, s.aula, s.horario,
-                       (c.creditos * c.costo_credito) as monto
+                       (c.creditos * c.costo_credito) as monto,
+                       pa.nombre as periodo_nombre, pa.anio as periodo_anio
                 FROM Matricula m
                 JOIN Estudiante e ON m.id_estudiante = e.id_estudiante
                 JOIN Usuario u ON e.id_usuario = u.id_usuario
                 JOIN Seccion s ON m.id_seccion = s.id_seccion
                 JOIN Curso c ON s.id_curso = c.id_curso
+                JOIN PeriodoAcademico pa ON s.id_periodo = pa.id_periodo
                 WHERE m.estado != 'Cancelada'
                 ORDER BY m.fecha_matricula DESC
             `);
@@ -726,6 +850,28 @@ app.post('/api/admin/secciones', verificarToken, verificarRol(['Administrador'])
     }
 });
 
+app.put('/api/admin/secciones/:id', verificarToken, verificarRol(['Administrador']), async (req, res) => {
+    try {
+        if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' });
+        const id_seccion = req.params.id;
+        const { docente, aula, horario, cupo } = req.body;
+        await pool.request()
+            .input('id_seccion', sql.Int, id_seccion)
+            .input('docente', sql.NVarChar, docente)
+            .input('aula', sql.NVarChar, aula)
+            .input('horario', sql.NVarChar, horario)
+            .input('cupo', sql.Int, cupo)
+            .query(`
+                UPDATE Seccion SET docente=@docente, aula=@aula, horario=@horario, cupo=@cupo
+                WHERE id_seccion=@id_seccion
+            `);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error actualizando sección:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.delete('/api/admin/secciones/:id', verificarToken, verificarRol(['Administrador']), async (req, res) => {
     try {
         if (!pool) {
@@ -786,6 +932,34 @@ app.delete('/api/admin/usuarios/:id', verificarToken, verificarRol(['Administrad
         
         const id_usuario = req.params.id;
         
+        const estudianteCheck = await pool.request()
+            .input('id_usuario', sql.Int, id_usuario)
+            .query('SELECT id_estudiante FROM Estudiante WHERE id_usuario = @id_usuario');
+
+        if (estudianteCheck.recordset.length > 0) {
+            const id_estudiante = estudianteCheck.recordset[0].id_estudiante;
+
+            const tieneMatriculas = await pool.request()
+                .input('id_estudiante', sql.Int, id_estudiante)
+                .query('SELECT COUNT(*) as total FROM Matricula WHERE id_estudiante = @id_estudiante AND estado != \'Cancelada\'');
+
+            if (tieneMatriculas.recordset[0].total > 0) {
+                return res.status(400).json({ error: 'No se puede eliminar un usuario con matrículas activas' });
+            }
+
+            await pool.request()
+                .input('id_estudiante', sql.Int, id_estudiante)
+                .query('DELETE FROM Matricula WHERE id_estudiante = @id_estudiante');
+
+            await pool.request()
+                .input('id_estudiante', sql.Int, id_estudiante)
+                .query('DELETE FROM Factura WHERE id_estudiante = @id_estudiante');
+
+            await pool.request()
+                .input('id_estudiante', sql.Int, id_estudiante)
+                .query('DELETE FROM Estudiante WHERE id_estudiante = @id_estudiante');
+        }
+
         await pool.request()
             .input('id_usuario', sql.Int, id_usuario)
             .query('DELETE FROM Usuario WHERE id_usuario = @id_usuario');
