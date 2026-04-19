@@ -1,4 +1,3 @@
-
 let currentUser = null;
 let currentEstudiante = null;
 let currentPeriodoId = 1;
@@ -10,7 +9,7 @@ let allCarreras = [];
 let allCursos = [];
 let allPeriodos = [];
 
-// API Base URL
+
 const API_URL = 'http://localhost:3000/api';
 
 // ==================== FUNCIONES DE API ====================
@@ -51,7 +50,8 @@ async function doLoginWithSSO() {
 async function doManualLogin() {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-password').value;
-    const role = document.getElementById('login-role').value;
+    const roleEl = document.getElementById('login-role');
+    const role = roleEl ? roleEl.value : '';
     
     if (!email || !password) {
         toast('❌ Ingrese correo y contraseña', '#ef4444');
@@ -414,13 +414,29 @@ async function loadDashboardData() {
 }
 
 // ==================== OFERTA ACADÉMICA ====================
-function loadPeriodosOferta() {
+async function loadPeriodosOferta() {
     const container = document.getElementById('period-tabs-oferta');
     if (!container) return;
-    container.innerHTML = `
-        <button class="tab-btn active" data-periodo="1" onclick="switchPeriodoOferta(this, 1)">2025-1</button>
-        <button class="tab-btn" data-periodo="2" onclick="switchPeriodoOferta(this, 2)">2025-2</button>
-    `;
+    try {
+        const periodos = await (await fetch(`${API_URL}/periodos`)).json();
+        if (!Array.isArray(periodos) || periodos.length === 0) {
+            container.innerHTML = '<span style="color:#6b7280;font-size:13px">No hay periodos disponibles</span>';
+            return;
+        }
+        allPeriodos = periodos;
+        const activo = periodos.find(p => p.activo) || periodos[0];
+        currentPeriodoId = activo.id_periodo;
+        container.innerHTML = periodos.map(p => `
+            <button class="tab-btn ${p.id_periodo === currentPeriodoId ? 'active' : ''}"
+                    data-periodo="${p.id_periodo}"
+                    onclick="switchPeriodoOferta(this, ${p.id_periodo})">
+                ${p.nombre} ${p.anio}
+            </button>
+        `).join('');
+    } catch (error) {
+        console.error('Error cargando periodos:', error);
+        container.innerHTML = '<span style="color:red;font-size:13px">Error cargando periodos</span>';
+    }
 }
 
 function switchPeriodoOferta(btn, periodoId) {
@@ -589,8 +605,8 @@ async function loadMisMatriculas() {
             tbody.innerHTML = matriculas.map(m => `
                 <tr>
                     <td>${m.id_matricula}</td>
-                    <td>2025-1</td>
-                    <td>${m.curso_nombre || 'N/A'}</td>
+                    <td>${m.periodo_nombre ? m.periodo_nombre + ' ' + (m.periodo_anio || '') : 'N/A'}</td>
+                    <td><strong>${m.codigo || ''}</strong> ${m.curso_nombre || 'N/A'}</td>
                     <td>${m.creditos || 0}</td>
                     <td>₡${(m.monto || 0).toLocaleString()}</td>
                     <td><span class="badge badge-green">${m.estado}</span></td>
@@ -605,15 +621,21 @@ async function loadMisMatriculas() {
 }
 
 async function cancelarMatricula(idMatricula) {
-    try {
-        await apiRequest(`/matriculas/${idMatricula}`, { method: 'DELETE' });
-        toast('✅ Matrícula cancelada', '#10b981');
-        loadMisMatriculas();
-        loadDashboardData();
-        loadOfertaData();
-    } catch (error) {
-        toast(`❌ Error: ${error.message}`, '#ef4444');
-    }
+    deleteCallback = async () => {
+        try {
+            await apiRequest(`/matriculas/${idMatricula}`, { method: 'DELETE' });
+            toast('✅ Matrícula cancelada', '#10b981');
+            closeMods();
+            loadMisMatriculas();
+            loadDashboardData();
+            loadOfertaData();
+        } catch (error) {
+            closeMods();
+            toast(`❌ ${error.message}`, '#ef4444');
+        }
+    };
+    document.getElementById('del-name').textContent = `la matrícula #${idMatricula}`;
+    openMod('modal-delete');
 }
 
 // ==================== MIS PAGOS ====================
@@ -644,7 +666,7 @@ async function loadMisFacturas() {
                     <td>₡${f.monto.toLocaleString()}</td>
                     <td>${new Date(f.fecha_vencimiento).toLocaleDateString()}</td>
                     <td><span class="badge ${f.estado === 'Pagada' ? 'badge-green' : 'badge-amber'}">${f.estado}</span></td>
-                    <td>${f.estado === 'Pendiente' ? `<button class="btn-pagar" onclick="abrirPagoFactura(${f.id_factura})">Pagar</button>` : '✅ Pagado'}</td>
+                    <td>${f.estado === 'Pendiente' ? `<button class="btn-pagar" onclick="abrirPagoFactura(${f.id_factura}, ${f.monto}, '${f.fecha_vencimiento}')">Pagar</button>` : '✅ Pagado'}</td>
                 </tr>
             `).join('');
         }
@@ -654,9 +676,23 @@ async function loadMisFacturas() {
     }
 }
 
-function abrirPagoFactura(idFactura) {
+function abrirPagoFactura(idFactura, monto, vencimiento) {
     const pagoInfo = document.getElementById('pago-info');
-    pagoInfo.innerHTML = `<p>Procesando pago de factura #${idFactura}...</p>`;
+    pagoInfo.innerHTML = `
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+            <span><b>Factura:</b></span><span>INV-${idFactura}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+            <span><b>Concepto:</b></span><span>Matrícula universitaria</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+            <span><b>Monto a pagar:</b></span>
+            <span style="font-size:1.2rem;font-weight:700;color:#10b981">₡${Number(monto).toLocaleString()}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between">
+            <span><b>Vencimiento:</b></span><span>${new Date(vencimiento).toLocaleDateString()}</span>
+        </div>
+    `;
     document.getElementById('modal-pago').dataset.facturaId = idFactura;
     openMod('modal-pago');
 }
@@ -697,10 +733,10 @@ async function loadMatriculaAdmin() {
                     <td>${m.id_matricula}</td>
                     <td>${m.estudiante_nombre || 'N/A'}<br><small>${m.carnet || ''}</small></td>
                     <td>${m.curso_nombre || 'N/A'}</td>
-                    <td>2025-1</td>
+                    <td>${m.periodo_nombre ? m.periodo_nombre + ' ' + (m.periodo_anio || '') : 'N/A'}</td>
                     <td>₡${(m.monto || 0).toLocaleString()}</td>
                     <td><span class="badge badge-green">${m.estado}</span></td>
-                    <td><button class="btn-icon danger" onclick="eliminarMatriculaAdmin(${m.id_matricula})">🗑️</button></td>
+                    <td><button class="btn-icon danger" onclick="confirmarEliminarMatriculaAdmin(${m.id_matricula})">🗑️</button></td>
                 </tr>
             `).join('');
         }
@@ -788,6 +824,24 @@ async function confirmarMatriculaAdminWrapper() {
     } else {
         toast('❌ Error al registrar matrículas', '#ef4444');
     }
+}
+
+function confirmarEliminarMatriculaAdmin(idMatricula) {
+    deleteCallback = async () => {
+        try {
+            await apiRequest(`/matriculas/${idMatricula}`, { method: 'DELETE' });
+            toast('✅ Matrícula eliminada', '#10b981');
+            closeMods();
+            loadMatriculaAdmin();
+            loadDashboardData();
+            loadOfertaData();
+        } catch (error) {
+            closeMods();
+            toast(`❌ ${error.message}`, '#ef4444');
+        }
+    };
+    document.getElementById('del-name').textContent = `la matrícula #${idMatricula}`;
+    openMod('modal-delete');
 }
 
 async function eliminarMatriculaAdmin(idMatricula) {
@@ -906,26 +960,87 @@ async function eliminarUsuarioAdmin(idUsuario) {
 }
 
 function showUserModal() {
-    toast('📝 Función de creación de usuarios en desarrollo', '#3b82f6');
+    document.getElementById('u-nombre').value = '';
+    document.getElementById('u-email').value = '';
+    document.getElementById('u-carnet').value = '';
+    document.getElementById('u-rol').value = 'student';
+    document.getElementById('u-password').value = '';
+    document.getElementById('u-confirm-password').value = '';
+    document.getElementById('usuario-modal-title').textContent = '➕ Nuevo Usuario';
+    // Populate carrera select from API data
+    const carreraSelect = document.getElementById('u-carrera');
+    carreraSelect.innerHTML = '<option value="">Seleccione una carrera</option>' +
+        allCarreras.map(c => `<option value="${c.id_programa}">${c.nombre}</option>`).join('');
+    carreraSelect.value = '';
+    openMod('modal-usuario');
+}
+
+async function guardarUsuario() {
+    const nombre = document.getElementById('u-nombre').value.trim();
+    const email = document.getElementById('u-email').value.trim();
+    const carnet = document.getElementById('u-carnet').value.trim();
+    const carrera = document.getElementById('u-carrera').value;
+    const rol = document.getElementById('u-rol').value;
+    const password = document.getElementById('u-password').value;
+    const confirmPassword = document.getElementById('u-confirm-password').value;
+
+    if (!nombre || !email || !password) {
+        toast('❌ Complete los campos obligatorios (Nombre, Correo y Contraseña)', '#ef4444');
+        return;
+    }
+
+    if (password !== confirmPassword) {
+        toast('❌ Las contraseñas no coinciden', '#ef4444');
+        return;
+    }
+
+    if (!carnet) {
+        toast('❌ El carnet es obligatorio', '#ef4444');
+        return;
+    }
+
+    try {
+        await apiRequest('/auth/register', {
+            method: 'POST',
+            body: JSON.stringify({
+                nombre,
+                email,
+                carnet,
+                password,
+                rol,
+                id_programa: carrera ? parseInt(carrera) : null
+            })
+        });
+
+        toast('✅ Usuario creado exitosamente', '#10b981');
+        closeMods();
+        loadUsuariosAdmin();
+    } catch (error) {
+        toast(`❌ Error: ${error.message}`, '#ef4444');
+    }
 }
 
 // ==================== ADMIN: SECCIONES ====================
 function abrirNuevoCurso() {
     const cursoSelect = document.getElementById('c-id-curso');
-    cursoSelect.innerHTML = allCursos.map(c => 
+    cursoSelect.innerHTML = allCursos.map(c =>
         `<option value="${c.id_curso}">${c.codigo} - ${c.nombre} (${c.creditos} créditos)</option>`
     ).join('');
-    
+
     const periodoSelect = document.getElementById('c-id-periodo');
-    periodoSelect.innerHTML = allPeriodos.map(p => 
+    periodoSelect.innerHTML = allPeriodos.map(p =>
         `<option value="${p.id_periodo}">${p.nombre} ${p.anio}</option>`
     ).join('');
-    
+
     document.getElementById('c-docente').value = '';
     document.getElementById('c-aula').value = '';
     document.getElementById('c-horario').value = '';
     document.getElementById('c-cupo').value = '30';
     document.getElementById('c-title').textContent = 'Nueva Sección';
+
+    // Reset confirm button to creation mode
+    const confirmBtn = document.querySelector('#modal-curso .btn-confirm');
+    confirmBtn.onclick = saveCurso;
     openMod('modal-curso');
 }
 
@@ -960,7 +1075,52 @@ async function saveCurso() {
 }
 
 function editSeccion(idSeccion) {
-    toast('✏️ Función de edición en desarrollo', '#fb923c');
+    const sec = allSecciones.find(s => s.id_seccion === idSeccion);
+    if (!sec) return;
+
+    const cursoSelect = document.getElementById('c-id-curso');
+    cursoSelect.innerHTML = allCursos.map(c =>
+        `<option value="${c.id_curso}" ${c.id_curso === sec.id_curso ? 'selected' : ''}>${c.codigo} - ${c.nombre} (${c.creditos} créditos)</option>`
+    ).join('');
+
+    const periodoSelect = document.getElementById('c-id-periodo');
+    periodoSelect.innerHTML = allPeriodos.map(p =>
+        `<option value="${p.id_periodo}" ${p.id_periodo === sec.id_periodo ? 'selected' : ''}>${p.nombre} ${p.anio}</option>`
+    ).join('');
+
+    document.getElementById('c-docente').value = sec.docente || '';
+    document.getElementById('c-aula').value = sec.aula || '';
+    document.getElementById('c-horario').value = sec.horario || '';
+    document.getElementById('c-cupo').value = sec.cupo || 30;
+    document.getElementById('c-title').textContent = '✏️ Editar Sección';
+
+    const confirmBtn = document.querySelector('#modal-curso .btn-confirm');
+    confirmBtn.onclick = () => saveSeccionEdit(idSeccion);
+    openMod('modal-curso');
+}
+
+async function saveSeccionEdit(idSeccion) {
+    const docente = document.getElementById('c-docente').value;
+    const aula = document.getElementById('c-aula').value;
+    const horario = document.getElementById('c-horario').value;
+    const cupo = parseInt(document.getElementById('c-cupo').value);
+
+    if (!docente || !aula || !horario) {
+        toast('❌ Complete todos los campos', '#ef4444');
+        return;
+    }
+
+    try {
+        await apiRequest(`/admin/secciones/${idSeccion}`, {
+            method: 'PUT',
+            body: JSON.stringify({ docente, aula, horario, cupo })
+        });
+        toast('✅ Sección actualizada', '#10b981');
+        closeMods();
+        loadOfertaData();
+    } catch (error) {
+        toast(`❌ Error: ${error.message}`, '#ef4444');
+    }
 }
 
 function confirmDeleteSeccion(idSeccion) {
@@ -992,7 +1152,7 @@ function doDelete() {
 
 // ==================== REPORTES ====================
 function loadReportesAdmin() {
-    // Los reportes se cargan en la vista
+   
 }
 
 function exportReport(tipo) {
@@ -1108,7 +1268,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const savedNotifs = localStorage.getItem('notifications');
     if (savedNotifs) notificationsDB = JSON.parse(savedNotifs);
     
-    // Agregar buscador a oferta
+    
     const filtersBar = document.querySelector('.filters-bar');
     if (filtersBar && !document.getElementById('searchCurso')) {
         const searchHtml = `
@@ -1121,7 +1281,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('searchCurso')?.addEventListener('input', () => aplicarFiltrosOferta());
     }
     
-    // Event listeners para sidebar
+    
     document.getElementById('sidebarToggle')?.addEventListener('click', () => {
         document.getElementById('sidebar')?.classList.toggle('open');
     });
@@ -1132,14 +1292,14 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('sidebar')?.classList.remove('open');
     });
     
-    // Cerrar modales al hacer clic fuera
+    
     document.querySelectorAll('.modal-overlay').forEach(o => {
         o.addEventListener('click', function(e) { 
             if (e.target === this) closeMods(); 
         });
     });
     
-    // Cerrar panel de notificaciones
+    
     document.addEventListener('click', e => { 
         const panel = document.getElementById('notif-panel'); 
         if (panel?.classList.contains('open') && !panel.contains(e.target) && !e.target.closest('#notif-trigger')) {
@@ -1147,7 +1307,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // Verificar salud del servidor
+    
     fetch('http://localhost:3000/api/health')
         .then(res => res.json())
         .then(data => {
