@@ -113,13 +113,54 @@
                 <div class="section-card">
                     <div class="section-header"><h3>Cursos</h3><button class="btn-primary" onclick="mostrarModalCurso()">+ Nuevo Curso</button></div>
                     <div class="filters-bar"><div class="search-box"><input type="text" id="search-curso" placeholder="Buscar curso..."></div><select id="filtro-carrera-curso" class="filter-select"><option value="">Todas las carreras</option></select><button class="btn-primary" onclick="cargarCursos()">Buscar</button></div>
-                    <div class="table-wrapper"><table class="data-table"><thead><tr><th>Código</th><th>Nombre</th><th>Créditos</th><th>Carrera</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="cursos-tbody"></tbody></table></div>
+                    <div class="table-wrapper"><table class="data-table"><thead><tr><th>Código</th><th>Nombre</th><th>Créditos</th><th>Carrera</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="cursos-tbody"></tbody></tr></div>
                 </div>
                 
                 <!-- Planes de Estudio -->
                 <div class="section-card">
                     <div class="section-header"><h3>Planes de Estudio</h3><button class="btn-primary" onclick="mostrarModalPlan()">+ Nuevo Plan</button></div>
                     <div class="table-wrapper"><table class="data-table"><thead><tr><th>ID</th><th>Nombre</th><th>Carrera</th><th>Cursos</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="planes-tbody"></tbody></table></div>
+                </div>
+            </div>
+            
+            <!-- PERIODOS ACADÉMICOS -->
+            <div class="page" id="page-periodos">
+                <div class="page-header">
+                    <h3>📅 Períodos Académicos</h3>
+                    <button class="btn-primary" onclick="mostrarModalPeriodo()">+ Nuevo Período</button>
+                </div>
+                <div class="section-card">
+                    <div class="filters-bar">
+                        <div class="search-box">
+                            <input type="text" id="search-periodo" placeholder="Buscar período...">
+                        </div>
+                        <select id="filtro-estado-periodo" class="filter-select" onchange="cargarPeriodos()">
+                            <option value="">Todos</option>
+                            <option value="1">Activos</option>
+                            <option value="0">Inactivos</option>
+                        </select>
+                        <button class="btn-primary" onclick="cargarPeriodos()">Buscar</button>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nombre</th>
+                                    <th>Año</th>
+                                    <th>Inicio Lectivo</th>
+                                    <th>Fin Lectivo</th>
+                                    <th>Inicio Matrícula</th>
+                                    <th>Fin Matrícula</th>
+                                    <th>Inicio Ajustes</th>
+                                    <th>Fin Ajustes</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="periodos-tbody"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
             
@@ -262,6 +303,82 @@
         <div class="modal-footer">
             <button class="btn-cancel" onclick="closeMods()">Cancelar</button>
             <button class="btn-confirm blue" onclick="guardarSeccion()">Guardar Sección</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Período -->
+<div class="modal-overlay" id="modal-periodo">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <h3 id="periodo-modal-title">+ Nuevo Período</h3>
+            <button class="modal-close" onclick="closeMods()">X</button>
+        </div>
+        <input type="hidden" id="periodo-id">
+        <div class="modal-grid">
+            <div class="modal-field">
+                <label>Nombre *</label>
+                <input type="text" id="periodo-nombre" placeholder="Ej: I Ciclo">
+            </div>
+            <div class="modal-field">
+                <label>Año *</label>
+                <input type="number" id="periodo-anio" placeholder="2025" value="2025">
+            </div>
+        </div>
+        <div class="modal-grid">
+            <div class="modal-field">
+                <label>Fecha Inicio Lectivo</label>
+                <input type="date" id="periodo-fecha-inicio">
+            </div>
+            <div class="modal-field">
+                <label>Fecha Fin Lectivo</label>
+                <input type="date" id="periodo-fecha-fin">
+            </div>
+        </div>
+        <div class="modal-grid">
+            <div class="modal-field">
+                <label>Fecha Inicio Matrícula</label>
+                <input type="date" id="periodo-fecha-inicio-matricula">
+            </div>
+            <div class="modal-field">
+                <label>Fecha Fin Matrícula</label>
+                <input type="date" id="periodo-fecha-fin-matricula">
+            </div>
+        </div>
+        <div class="modal-grid">
+            <div class="modal-field">
+                <label>Fecha Inicio Ajustes</label>
+                <input type="date" id="periodo-fecha-inicio-ajustes">
+            </div>
+            <div class="modal-field">
+                <label>Fecha Fin Ajustes</label>
+                <input type="date" id="periodo-fecha-fin-ajustes">
+            </div>
+        </div>
+        <div class="modal-field">
+            <label>Estado</label>
+            <select id="periodo-estado">
+                <option value="0">Inactivo</option>
+                <option value="1">Activo</option>
+            </select>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeMods()">Cancelar</button>
+            <button class="btn-confirm blue" onclick="guardarPeriodo()">Guardar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Plan Detalle -->
+<div class="modal-overlay" id="modal-plan-detalle">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <h3>📚 Plan de Estudio</h3>
+            <button class="modal-close" onclick="closeMods()">X</button>
+        </div>
+        <div id="modal-plan-detalle-content"></div>
+        <div class="modal-footer">
+            <button class="btn-cancel" onclick="closeMods()">Cerrar</button>
         </div>
     </div>
 </div>
