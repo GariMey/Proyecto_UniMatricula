@@ -23,11 +23,11 @@ const CONFIG = {
 
 // ==================== CONFIGURACIÓN SQL SERVER ====================
 const dbConfig = {
-    server: 'tiusr19pl.cuc-carrera-ti.ac.cr',  // ← ESTE es tu servidor
+    server: 'tiusr19pl.cuc-carrera-ti.ac.cr',
     port: 1433,
     database: 'MatriculaUNI',
     user: 'GARITA',
-    password: 'GARITA123',  // ← La que usaste en Plesk
+    password: 'GARITA123',
     options: {
         trustServerCertificate: true,
         enableArithAbort: true,
@@ -160,19 +160,112 @@ app.put('/api/carreras/:id', verificarToken, verificarRol(['Administrador']), as
 
 app.delete('/api/carreras/:id', verificarToken, verificarRol(['Administrador']), async (req, res) => { try { if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' }); const id = req.params.id; const tieneCursos = await pool.request().input('id', sql.Int, id).query('SELECT COUNT(*) as total FROM Curso WHERE id_programa = @id'); if (tieneCursos.recordset[0].total > 0) return res.status(400).json({ error: 'No se puede eliminar una carrera con cursos asociados' }); await pool.request().input('id', sql.Int, id).query('DELETE FROM ProgramaAcademico WHERE id_programa = @id'); await registrarBitacora(req, 'ELIMINAR', 'Carrera', id, `Carrera eliminada`); res.json({ success: true }); } catch (error) { res.status(500).json({ error: error.message }); } });
 
-// ==================== API DE CURSOS ====================
-app.get('/api/cursos', async (req, res) => { try { if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' }); const result = await pool.request().query(`SELECT c.id_curso, c.codigo, c.nombre, c.creditos, c.costo_credito, c.id_programa, p.nombre as programa_nombre, c.descripcion, c.estado FROM Curso c LEFT JOIN ProgramaAcademico p ON c.id_programa = p.id_programa ORDER BY c.codigo`); res.json(result.recordset); } catch (error) { console.error('Error en /cursos:', error); res.status(500).json({ error: error.message }); } });
+// ==================== API DE CURSOS (con filtro por carrera del estudiante) ====================
+app.get('/api/cursos', verificarToken, async (req, res) => {
+    try {
+        if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' });
+        
+        let query = `
+            SELECT c.id_curso, c.codigo, c.nombre, c.creditos, c.costo_credito, 
+                   c.id_programa, p.nombre as programa_nombre, c.descripcion, c.estado 
+            FROM Curso c 
+            LEFT JOIN ProgramaAcademico p ON c.id_programa = p.id_programa 
+            WHERE 1=1
+        `;
+        
+        // Si es estudiante, filtrar por su carrera
+        if (req.usuario && req.usuario.rol !== 'Administrador') {
+            const estudianteCarrera = await pool.request()
+                .input('id_usuario', sql.Int, req.usuario.id_usuario)
+                .query(`
+                    SELECT e.id_programa 
+                    FROM Estudiante e 
+                    WHERE e.id_usuario = @id_usuario
+                `);
+            
+            if (estudianteCarrera.recordset.length > 0) {
+                const id_programa = estudianteCarrera.recordset[0].id_programa;
+                query += ` AND c.id_programa = @id_programa`;
+                req.query.id_programa = id_programa;
+            } else {
+                query += ` AND 1 = 0`;
+            }
+        }
+        
+        query += ` ORDER BY c.codigo`;
+        
+        let request = pool.request();
+        if (req.query.id_programa) request = request.input('id_programa', sql.Int, req.query.id_programa);
+        
+        const result = await request.query(query);
+        res.json(result.recordset);
+    } catch (error) {
+        console.error('Error en /cursos:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
 
-app.get('/api/cursos/buscar', verificarToken, async (req, res) => { try { if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' }); const { search, estado, id_programa } = req.query; let query = 'SELECT * FROM Curso WHERE 1=1'; if (search) query += ` AND (codigo LIKE '%${search}%' OR nombre LIKE '%${search}%')`; if (estado && estado !== 'todos') query += ` AND estado = '${estado}'`; if (id_programa) query += ` AND id_programa = ${id_programa}`; query += ' ORDER BY codigo'; const result = await pool.request().query(query); res.json(result.recordset); } catch (error) { res.status(500).json({ error: error.message }); } });
+app.get('/api/cursos/buscar', verificarToken, async (req, res) => {
+    try {
+        if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' });
+        const { search, estado, id_programa } = req.query;
+        
+        let query = `
+            SELECT c.*, p.nombre as programa_nombre 
+            FROM Curso c 
+            LEFT JOIN ProgramaAcademico p ON c.id_programa = p.id_programa 
+            WHERE 1=1
+        `;
+        
+        // Si es estudiante, filtrar por su carrera (ignorar filtro de carrera)
+        if (req.usuario && req.usuario.rol !== 'Administrador') {
+            const estudianteCarrera = await pool.request()
+                .input('id_usuario', sql.Int, req.usuario.id_usuario)
+                .query(`
+                    SELECT e.id_programa 
+                    FROM Estudiante e 
+                    WHERE e.id_usuario = @id_usuario
+                `);
+            
+            if (estudianteCarrera.recordset.length > 0) {
+                const carreraEstudiante = estudianteCarrera.recordset[0].id_programa;
+                query += ` AND c.id_programa = @carreraEstudiante`;
+                req.query.carreraEstudiante = carreraEstudiante;
+            } else {
+                query += ` AND 1 = 0`;
+            }
+        } else if (id_programa && id_programa !== '') {
+            query += ` AND c.id_programa = @id_programa`;
+        }
+        
+        if (search && search !== '') {
+            query += ` AND (c.codigo LIKE @search OR c.nombre LIKE @search)`;
+        }
+        if (estado && estado !== 'todos' && estado !== '') {
+            query += ` AND c.estado = @estado`;
+        }
+        
+        query += ` ORDER BY c.codigo`;
+        
+        let request = pool.request();
+        if (req.query.carreraEstudiante) request = request.input('carreraEstudiante', sql.Int, req.query.carreraEstudiante);
+        if (id_programa && id_programa !== '') request = request.input('id_programa', sql.Int, id_programa);
+        if (search && search !== '') request = request.input('search', sql.NVarChar, `%${search}%`);
+        if (estado && estado !== 'todos' && estado !== '') request = request.input('estado', sql.NVarChar, estado);
+        
+        const result = await request.query(query);
+        res.json(result.recordset);
+    } catch (error) {
+        console.error('Error en /cursos/buscar:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
 
 app.post('/api/cursos', verificarToken, verificarRol(['Administrador']), async (req, res) => { try { if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' }); const { codigo, nombre, creditos, costo_credito, id_programa, descripcion } = req.body; if (!codigo || !nombre || !creditos) return res.status(400).json({ error: 'Código, nombre y créditos son obligatorios' }); if (creditos <= 0) return res.status(400).json({ error: 'Créditos deben ser mayores que 0' }); try { const result = await pool.request().input('codigo', sql.NVarChar, codigo).input('nombre', sql.NVarChar, nombre).input('creditos', sql.Int, creditos).input('costo_credito', sql.Decimal, costo_credito || CONFIG.COSTO_POR_CREDITO_DEFAULT).input('id_programa', sql.Int, id_programa || null).input('descripcion', sql.NVarChar, descripcion || null).query(`INSERT INTO Curso (codigo, nombre, creditos, costo_credito, id_programa, descripcion, estado) VALUES (@codigo, @nombre, @creditos, @costo_credito, @id_programa, @descripcion, 'Activo'); SELECT SCOPE_IDENTITY() as id;`); const id_curso = result.recordset[0].id; await registrarBitacora(req, 'CREAR', 'Curso', id_curso, `Curso creado: ${codigo} - ${nombre} (${creditos} créditos)`); res.json({ success: true, id_curso }); } catch (error) { if (error.message.includes('UNIQUE')) res.status(400).json({ error: 'Ya existe un curso con ese código' }); else throw error; } } catch (error) { res.status(500).json({ error: error.message }); } });
 
 app.put('/api/cursos/:id', verificarToken, verificarRol(['Administrador']), async (req, res) => { try { if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' }); const id_curso = req.params.id; const datosAnteriores = await pool.request().input('id_curso', sql.Int, id_curso).query('SELECT codigo, nombre, creditos, costo_credito, id_programa, descripcion FROM Curso WHERE id_curso = @id_curso'); const { codigo, nombre, creditos, costo_credito, id_programa, descripcion } = req.body; await pool.request().input('id_curso', sql.Int, id_curso).input('codigo', sql.NVarChar, codigo).input('nombre', sql.NVarChar, nombre).input('creditos', sql.Int, creditos).input('costo_credito', sql.Decimal, costo_credito).input('id_programa', sql.Int, id_programa).input('descripcion', sql.NVarChar, descripcion).query(`UPDATE Curso SET codigo = @codigo, nombre = @nombre, creditos = @creditos, costo_credito = @costo_credito, id_programa = @id_programa, descripcion = @descripcion WHERE id_curso = @id_curso`); await registrarBitacora(req, 'EDITAR', 'Curso', id_curso, `Curso editado: ${codigo}`, datosAnteriores.recordset[0], { codigo, nombre, creditos, costo_credito, id_programa, descripcion }); res.json({ success: true }); } catch (error) { res.status(500).json({ error: error.message }); } });
 
 app.put('/api/cursos/:id/estado', verificarToken, verificarRol(['Administrador']), async (req, res) => { try { if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' }); const id_curso = req.params.id; const { estado } = req.body; if (estado === 'Inactivo') { const planResult = await pool.request().input('id_curso', sql.Int, id_curso).query('SELECT COUNT(*) as total FROM plan_estudio_curso WHERE id_curso = @id_curso'); const matriculaResult = await pool.request().input('id_curso', sql.Int, id_curso).query('SELECT COUNT(*) as total FROM matricula_detalle WHERE id_curso = @id_curso'); if (planResult.recordset[0].total > 0 || matriculaResult.recordset[0].total > 0) { await pool.request().input('id_curso', sql.Int, id_curso).input('estado', sql.NVarChar, estado).query('UPDATE Curso SET estado = @estado WHERE id_curso = @id_curso'); await registrarBitacora(req, 'INACTIVAR', 'Curso', id_curso, `Curso inactivado (tiene asociaciones)`); return res.json({ success: true, message: 'Curso inactivado' }); } } await pool.request().input('id_curso', sql.Int, id_curso).input('estado', sql.NVarChar, estado).query('UPDATE Curso SET estado = @estado WHERE id_curso = @id_curso'); await registrarBitacora(req, estado === 'Activo' ? 'ACTIVAR' : 'INACTIVAR', 'Curso', id_curso, `Curso ${estado === 'Activo' ? 'activado' : 'inactivado'}`); res.json({ success: true }); } catch (error) { res.status(500).json({ error: error.message }); } });
-
-// ==================== API DE PERIODOS ====================
-app.get('/api/periodos', async (req, res) => { try { if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' }); const result = await pool.request().query(`SELECT id_periodo, nombre, anio, fecha_inicio, fecha_fin, estado as activo FROM PeriodoAcademico ORDER BY anio DESC, id_periodo DESC`); res.json(result.recordset); } catch (error) { console.error('Error en /periodos:', error); res.status(500).json({ error: error.message }); } });
 
 // ==================== API DE AUTENTICACIÓN ====================
 app.post('/api/auth/login', async (req, res) => { try { if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' }); const { email, password } = req.body; const result = await pool.request().input('email', sql.NVarChar, email).query(`SELECT u.id_usuario, u.nombre, u.correo_institucional, u.estado, r.nombre as rol_nombre, r.id_rol FROM Usuario u JOIN Rol r ON u.id_rol = r.id_rol WHERE u.correo_institucional = @email`); let usuario = result.recordset[0]; if (!usuario) { await registrarBitacora(req, 'LOGIN_FALLIDO', 'Usuario', null, `Intento de login con email: ${email}`); return res.status(401).json({ error: 'Credenciales inválidas' }); } const token = jwt.sign({ id_usuario: usuario.id_usuario, nombre: usuario.nombre, rol: usuario.rol_nombre, id_rol: usuario.id_rol }, process.env.JWT_SECRET || 'unimatricula_secret_2025', { expiresIn: '8h' }); await registrarBitacora(req, 'LOGIN_EXITOSO', 'Usuario', usuario.id_usuario, `Usuario ${usuario.nombre} inició sesión`); res.json({ success: true, token, usuario: { id_usuario: usuario.id_usuario, nombre: usuario.nombre, email: usuario.correo_institucional, rol: usuario.rol_nombre, id_rol: usuario.id_rol } }); } catch (error) { console.error('Error en login:', error); res.status(500).json({ error: error.message }); } });
@@ -181,8 +274,57 @@ app.post('/api/auth/register', async (req, res) => { try { if (!pool) return res
 
 app.get('/api/auth/estudiante', verificarToken, async (req, res) => { try { if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' }); const result = await pool.request().input('id_usuario', sql.Int, req.usuario.id_usuario).query(`SELECT e.id_estudiante, e.carnet, e.estado_academico, e.id_programa, ISNULL((SELECT SUM(f.monto) FROM Factura f WHERE f.id_estudiante = e.id_estudiante AND f.estado = 'Pendiente'), 0) as montoDeuda FROM Estudiante e WHERE e.id_usuario = @id_usuario`); res.json({ success: true, estudiante: result.recordset[0] || null }); } catch (error) { res.status(500).json({ error: error.message }); } });
 
-// ==================== API DE OFERTA ====================
-app.get('/api/oferta/secciones', verificarToken, async (req, res) => { try { if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' }); const { periodo_id } = req.query; const result = await pool.request().input('periodo_id', sql.Int, periodo_id || 1).query(`SELECT s.id_seccion, s.id_curso, s.id_periodo, s.docente, s.aula, s.horario, s.cupo, s.numero_seccion, ISNULL(s.cupo - (SELECT COUNT(*) FROM Matricula m WHERE m.id_seccion = s.id_seccion AND m.estado IN ('Confirmada', 'Pendiente')), s.cupo) as disponibles, c.codigo, c.nombre as curso_nombre, c.creditos, c.costo_credito, p.nombre as programa_nombre, p.id_programa, pa.nombre as periodo_nombre FROM Seccion s JOIN Curso c ON s.id_curso = c.id_curso JOIN ProgramaAcademico p ON c.id_programa = p.id_programa JOIN PeriodoAcademico pa ON s.id_periodo = pa.id_periodo WHERE (@periodo_id IS NULL OR s.id_periodo = @periodo_id) ORDER BY c.codigo`); res.json(result.recordset); } catch (error) { console.error('Error en /oferta/secciones:', error); res.status(500).json({ error: error.message }); } });
+// ==================== API DE OFERTA (con filtro por carrera del estudiante) ====================
+app.get('/api/oferta/secciones', verificarToken, async (req, res) => {
+    try {
+        if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' });
+        const { periodo_id } = req.query;
+        
+        let query = `
+            SELECT s.id_seccion, s.id_curso, s.id_periodo, s.docente, s.aula, s.horario, s.cupo, s.numero_seccion, 
+                   ISNULL(s.cupo - (SELECT COUNT(*) FROM Matricula m WHERE m.id_seccion = s.id_seccion AND m.estado IN ('Confirmada', 'Pendiente')), s.cupo) as disponibles,
+                   c.codigo, c.nombre as curso_nombre, c.creditos, c.costo_credito, 
+                   p.nombre as programa_nombre, p.id_programa, 
+                   pa.nombre as periodo_nombre 
+            FROM Seccion s 
+            JOIN Curso c ON s.id_curso = c.id_curso 
+            JOIN ProgramaAcademico p ON c.id_programa = p.id_programa 
+            JOIN PeriodoAcademico pa ON s.id_periodo = pa.id_periodo 
+            WHERE (@periodo_id IS NULL OR s.id_periodo = @periodo_id)
+        `;
+        
+        // Si es estudiante (no admin), filtrar por su carrera
+        if (req.usuario && req.usuario.rol !== 'Administrador') {
+            const estudianteCarrera = await pool.request()
+                .input('id_usuario', sql.Int, req.usuario.id_usuario)
+                .query(`
+                    SELECT e.id_programa 
+                    FROM Estudiante e 
+                    WHERE e.id_usuario = @id_usuario
+                `);
+            
+            if (estudianteCarrera.recordset.length > 0) {
+                const id_programa = estudianteCarrera.recordset[0].id_programa;
+                query += ` AND c.id_programa = @id_programa`;
+                req.query.id_programa = id_programa;
+            } else {
+                query += ` AND 1 = 0`;
+            }
+        }
+        
+        query += ` ORDER BY c.codigo`;
+        
+        let request = pool.request();
+        if (periodo_id) request = request.input('periodo_id', sql.Int, periodo_id);
+        if (req.query.id_programa) request = request.input('id_programa', sql.Int, req.query.id_programa);
+        
+        const result = await request.query(query);
+        res.json(result.recordset);
+    } catch (error) {
+        console.error('Error en /oferta/secciones:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
 
 // ==================== API DE MATRÍCULAS ====================
 app.get('/api/matriculas/mis-matriculas', verificarToken, async (req, res) => { try { if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' }); const result = await pool.request().input('id_usuario', sql.Int, req.usuario.id_usuario).query(`SELECT m.id_matricula, m.id_seccion, m.fecha_matricula, m.estado, c.id_curso, c.codigo, c.nombre as curso_nombre, c.creditos, s.docente, s.aula, s.horario, (c.creditos * c.costo_credito) as monto, pa.nombre as periodo_nombre, pa.anio as periodo_anio FROM Matricula m JOIN Seccion s ON m.id_seccion = s.id_seccion JOIN Curso c ON s.id_curso = c.id_curso JOIN PeriodoAcademico pa ON s.id_periodo = pa.id_periodo JOIN Estudiante e ON m.id_estudiante = e.id_estudiante JOIN Usuario u ON e.id_usuario = u.id_usuario WHERE u.id_usuario = @id_usuario AND m.estado != 'Cancelada' ORDER BY m.fecha_matricula DESC`); res.json(result.recordset); } catch (error) { console.error('Error en /matriculas/mis-matriculas:', error); res.status(500).json({ error: error.message }); } });
@@ -198,6 +340,105 @@ app.post('/api/pagos/procesar', verificarToken, async (req, res) => { try { if (
 
 // ==================== API DE PLANES DE ESTUDIO ====================
 app.get('/api/planes', verificarToken, async (req, res) => { try { if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' }); const result = await pool.request().query(`SELECT p.*, COUNT(pc.id_plan_curso) as total_cursos FROM plan_estudio p LEFT JOIN plan_estudio_curso pc ON p.id_plan = pc.id_plan AND pc.estado = 'Activo' GROUP BY p.id_plan, p.nombre_plan, p.carrera, p.fecha_creacion, p.estado ORDER BY p.fecha_creacion DESC`); res.json(result.recordset); } catch (error) { res.status(500).json({ error: error.message }); } });
+
+// Obtener planes de estudio filtrados por la carrera del estudiante
+app.get('/api/planes/estudiante', verificarToken, async (req, res) => {
+    try {
+        if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' });
+        
+        // Obtener la carrera del estudiante
+        const estudianteCarrera = await pool.request()
+            .input('id_usuario', sql.Int, req.usuario.id_usuario)
+            .query(`
+                SELECT e.id_programa, p.nombre as carrera_nombre
+                FROM Estudiante e
+                JOIN ProgramaAcademico p ON e.id_programa = p.id_programa
+                WHERE e.id_usuario = @id_usuario
+            `);
+        
+        if (estudianteCarrera.recordset.length === 0) {
+            return res.json([]);
+        }
+        
+        const carreraNombre = estudianteCarrera.recordset[0].carrera_nombre;
+        
+        let query = `
+            SELECT 
+                p.id_plan,
+                p.nombre_plan,
+                p.carrera,
+                p.fecha_creacion,
+                p.estado,
+                COUNT(pc.id_plan_curso) as total_cursos
+            FROM plan_estudio p
+            LEFT JOIN plan_estudio_curso pc ON p.id_plan = pc.id_plan AND pc.estado = 'Activo'
+            WHERE p.estado = 'Activo' AND p.carrera = @carreraNombre
+            GROUP BY p.id_plan, p.nombre_plan, p.carrera, p.fecha_creacion, p.estado
+            ORDER BY p.fecha_creacion DESC
+        `;
+        
+        const result = await pool.request()
+            .input('carreraNombre', sql.NVarChar, carreraNombre)
+            .query(query);
+            
+        res.json(result.recordset);
+    } catch (error) {
+        console.error('Error en /planes/estudiante:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Obtener detalle de un plan específico con sus cursos
+app.get('/api/planes/estudiante/:id', verificarToken, async (req, res) => {
+    try {
+        if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' });
+        const id_plan = req.params.id;
+        
+        // Información del plan
+        const planResult = await pool.request()
+            .input('id_plan', sql.Int, id_plan)
+            .query(`
+                SELECT 
+                    p.id_plan,
+                    p.nombre_plan,
+                    p.carrera,
+                    p.fecha_creacion,
+                    p.estado
+                FROM plan_estudio p
+                WHERE p.id_plan = @id_plan AND p.estado = 'Activo'
+            `);
+        
+        if (planResult.recordset.length === 0) {
+            return res.status(404).json({ error: 'Plan de estudio no encontrado' });
+        }
+        
+        // Cursos del plan agrupados por cuatrimestre
+        const cursosResult = await pool.request()
+            .input('id_plan', sql.Int, id_plan)
+            .query(`
+                SELECT 
+                    pc.id_plan_curso,
+                    c.id_curso,
+                    c.codigo,
+                    c.nombre as curso_nombre,
+                    c.creditos,
+                    pc.cuatrimestre,
+                    pc.requisito
+                FROM plan_estudio_curso pc
+                JOIN Curso c ON pc.id_curso = c.id_curso
+                WHERE pc.id_plan = @id_plan AND pc.estado = 'Activo'
+                ORDER BY pc.cuatrimestre, c.codigo
+            `);
+        
+        res.json({
+            plan: planResult.recordset[0],
+            cursos: cursosResult.recordset
+        });
+    } catch (error) {
+        console.error('Error en /planes/estudiante/:id:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
 
 app.post('/api/planes', verificarToken, verificarRol(['Administrador']), async (req, res) => { try { if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' }); const { nombre_plan, carrera } = req.body; if (!nombre_plan || !carrera) return res.status(400).json({ error: 'Nombre y carrera son obligatorios' }); try { const result = await pool.request().input('nombre_plan', sql.NVarChar, nombre_plan).input('carrera', sql.NVarChar, carrera).query(`INSERT INTO plan_estudio (nombre_plan, carrera) VALUES (@nombre_plan, @carrera); SELECT SCOPE_IDENTITY() as id;`); const id_plan = result.recordset[0].id; await registrarBitacora(req, 'CREAR', 'PlanEstudio', id_plan, `Plan creado: ${nombre_plan} (${carrera})`); res.json({ success: true, id_plan }); } catch (error) { if (error.message.includes('UNIQUE')) res.status(400).json({ error: 'Ya existe un plan con ese nombre' }); else throw error; } } catch (error) { res.status(500).json({ error: error.message }); } });
 
@@ -227,7 +468,6 @@ app.post('/api/admin/matriculas', verificarToken, verificarRol(['Administrador']
 app.get('/api/admin/facturas', verificarToken, verificarRol(['Administrador']), async (req, res) => { try { if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' }); const result = await pool.request().query(`SELECT f.id_factura, f.monto, f.fecha_emision, f.fecha_vencimiento, f.fecha_pago, f.estado, u.nombre as estudiante_nombre, u.correo_institucional, e.carnet FROM Factura f JOIN Estudiante e ON f.id_estudiante = e.id_estudiante JOIN Usuario u ON e.id_usuario = u.id_usuario ORDER BY f.fecha_emision DESC`); res.json(result.recordset); } catch (error) { console.error('Error en /admin/facturas:', error); res.status(500).json({ error: error.message }); } });
 
 // ==================== API DE ADMIN SECCIONES ====================
-// Obtener todas las secciones
 app.get('/api/admin/secciones', verificarToken, verificarRol(['Administrador']), async (req, res) => {
     try {
         if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' });
@@ -247,7 +487,6 @@ app.get('/api/admin/secciones', verificarToken, verificarRol(['Administrador']),
     }
 });
 
-// Crear nueva sección
 app.post('/api/admin/secciones', verificarToken, verificarRol(['Administrador']), async (req, res) => {
     try {
         if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' });
@@ -277,7 +516,6 @@ app.post('/api/admin/secciones', verificarToken, verificarRol(['Administrador'])
     }
 });
 
-// Actualizar sección
 app.put('/api/admin/secciones/:id', verificarToken, verificarRol(['Administrador']), async (req, res) => {
     try {
         if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' });
@@ -305,7 +543,6 @@ app.put('/api/admin/secciones/:id', verificarToken, verificarRol(['Administrador
     }
 });
 
-// Eliminar sección
 app.delete('/api/admin/secciones/:id', verificarToken, verificarRol(['Administrador']), async (req, res) => {
     try {
         if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' });
@@ -327,7 +564,6 @@ app.delete('/api/admin/secciones/:id', verificarToken, verificarRol(['Administra
     }
 });
 
-// Obtener una sección específica
 app.get('/api/admin/secciones/:id', verificarToken, verificarRol(['Administrador']), async (req, res) => {
     try {
         if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' });
@@ -348,6 +584,197 @@ app.get('/api/admin/secciones/:id', verificarToken, verificarRol(['Administrador
         res.json(result.recordset[0]);
     } catch (error) {
         console.error('Error obteniendo sección:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ==================== API DE PERIODOS (CRUD Completo) ====================
+// Obtener todos los periodos
+app.get('/api/periodos', async (req, res) => {
+    try {
+        if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' });
+        const result = await pool.request().query(`
+            SELECT id_periodo, nombre, anio, 
+                   CONVERT(date, fecha_inicio) as fecha_inicio,
+                   CONVERT(date, fecha_fin) as fecha_fin,
+                   CONVERT(date, fecha_inicio_matricula) as fecha_inicio_matricula,
+                   CONVERT(date, fecha_fin_matricula) as fecha_fin_matricula,
+                   CONVERT(date, fecha_inicio_ajustes) as fecha_inicio_ajustes,
+                   CONVERT(date, fecha_fin_ajustes) as fecha_fin_ajustes,
+                   estado
+            FROM PeriodoAcademico 
+            ORDER BY anio DESC, id_periodo DESC
+        `);
+        res.json(result.recordset);
+    } catch (error) {
+        console.error('Error en /periodos:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Obtener un periodo específico
+app.get('/api/periodos/:id', verificarToken, verificarRol(['Administrador']), async (req, res) => {
+    try {
+        if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' });
+        const id = req.params.id;
+        const result = await pool.request()
+            .input('id', sql.Int, id)
+            .query(`
+                SELECT id_periodo, nombre, anio, 
+                       CONVERT(date, fecha_inicio) as fecha_inicio,
+                       CONVERT(date, fecha_fin) as fecha_fin,
+                       CONVERT(date, fecha_inicio_matricula) as fecha_inicio_matricula,
+                       CONVERT(date, fecha_fin_matricula) as fecha_fin_matricula,
+                       CONVERT(date, fecha_inicio_ajustes) as fecha_inicio_ajustes,
+                       CONVERT(date, fecha_fin_ajustes) as fecha_fin_ajustes,
+                       estado
+                FROM PeriodoAcademico 
+                WHERE id_periodo = @id
+            `);
+        if (result.recordset.length === 0) {
+            return res.status(404).json({ error: 'Periodo no encontrado' });
+        }
+        res.json(result.recordset[0]);
+    } catch (error) {
+        console.error('Error en /periodos/:id:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Crear nuevo periodo
+app.post('/api/periodos', verificarToken, verificarRol(['Administrador']), async (req, res) => {
+    try {
+        if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' });
+        const { nombre, anio, fecha_inicio, fecha_fin, fecha_inicio_matricula, fecha_fin_matricula, fecha_inicio_ajustes, fecha_fin_ajustes, estado } = req.body;
+        
+        if (!nombre || !anio) {
+            return res.status(400).json({ error: 'Nombre y año son obligatorios' });
+        }
+        
+        const result = await pool.request()
+            .input('nombre', sql.NVarChar, nombre)
+            .input('anio', sql.Int, anio)
+            .input('fecha_inicio', sql.Date, fecha_inicio || null)
+            .input('fecha_fin', sql.Date, fecha_fin || null)
+            .input('fecha_inicio_matricula', sql.Date, fecha_inicio_matricula || null)
+            .input('fecha_fin_matricula', sql.Date, fecha_fin_matricula || null)
+            .input('fecha_inicio_ajustes', sql.Date, fecha_inicio_ajustes || null)
+            .input('fecha_fin_ajustes', sql.Date, fecha_fin_ajustes || null)
+            .input('estado', sql.Int, estado !== undefined ? estado : 0)
+            .query(`
+                INSERT INTO PeriodoAcademico (nombre, anio, fecha_inicio, fecha_fin, 
+                    fecha_inicio_matricula, fecha_fin_matricula, 
+                    fecha_inicio_ajustes, fecha_fin_ajustes, estado)
+                VALUES (@nombre, @anio, @fecha_inicio, @fecha_fin, 
+                    @fecha_inicio_matricula, @fecha_fin_matricula,
+                    @fecha_inicio_ajustes, @fecha_fin_ajustes, @estado);
+                SELECT SCOPE_IDENTITY() as id;
+            `);
+        
+        await registrarBitacora(req, 'CREAR', 'Periodo', result.recordset[0].id, `Periodo creado: ${nombre} ${anio}`);
+        res.json({ success: true, id_periodo: result.recordset[0].id });
+    } catch (error) {
+        console.error('Error en POST /periodos:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Actualizar periodo
+app.put('/api/periodos/:id', verificarToken, verificarRol(['Administrador']), async (req, res) => {
+    try {
+        if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' });
+        const id = req.params.id;
+        const { nombre, anio, fecha_inicio, fecha_fin, fecha_inicio_matricula, fecha_fin_matricula, fecha_inicio_ajustes, fecha_fin_ajustes, estado } = req.body;
+        
+        // Obtener datos anteriores para bitácora
+        const datosAnteriores = await pool.request()
+            .input('id', sql.Int, id)
+            .query('SELECT nombre, anio, estado FROM PeriodoAcademico WHERE id_periodo = @id');
+        
+        await pool.request()
+            .input('id', sql.Int, id)
+            .input('nombre', sql.NVarChar, nombre)
+            .input('anio', sql.Int, anio)
+            .input('fecha_inicio', sql.Date, fecha_inicio || null)
+            .input('fecha_fin', sql.Date, fecha_fin || null)
+            .input('fecha_inicio_matricula', sql.Date, fecha_inicio_matricula || null)
+            .input('fecha_fin_matricula', sql.Date, fecha_fin_matricula || null)
+            .input('fecha_inicio_ajustes', sql.Date, fecha_inicio_ajustes || null)
+            .input('fecha_fin_ajustes', sql.Date, fecha_fin_ajustes || null)
+            .input('estado', sql.Int, estado)
+            .query(`
+                UPDATE PeriodoAcademico 
+                SET nombre = @nombre, anio = @anio, 
+                    fecha_inicio = @fecha_inicio, fecha_fin = @fecha_fin,
+                    fecha_inicio_matricula = @fecha_inicio_matricula, 
+                    fecha_fin_matricula = @fecha_fin_matricula,
+                    fecha_inicio_ajustes = @fecha_inicio_ajustes,
+                    fecha_fin_ajustes = @fecha_fin_ajustes,
+                    estado = @estado
+                WHERE id_periodo = @id
+            `);
+        
+        await registrarBitacora(req, 'EDITAR', 'Periodo', id, `Periodo editado: ${nombre} ${anio}`, datosAnteriores.recordset[0], { nombre, anio, estado });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error en PUT /periodos/:id:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Eliminar periodo (solo si no tiene secciones asociadas)
+app.delete('/api/periodos/:id', verificarToken, verificarRol(['Administrador']), async (req, res) => {
+    try {
+        if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' });
+        const id = req.params.id;
+        
+        // Verificar si tiene secciones asociadas
+        const seccionesCheck = await pool.request()
+            .input('id', sql.Int, id)
+            .query('SELECT COUNT(*) as total FROM Seccion WHERE id_periodo = @id');
+        
+        if (seccionesCheck.recordset[0].total > 0) {
+            // En lugar de eliminar, desactivar
+            await pool.request()
+                .input('id', sql.Int, id)
+                .query('UPDATE PeriodoAcademico SET estado = 0 WHERE id_periodo = @id');
+            await registrarBitacora(req, 'INACTIVAR', 'Periodo', id, `Periodo inactivado (tiene secciones asociadas)`);
+            return res.json({ success: true, message: 'Periodo inactivado (tiene secciones asociadas)' });
+        }
+        
+        await pool.request()
+            .input('id', sql.Int, id)
+            .query('DELETE FROM PeriodoAcademico WHERE id_periodo = @id');
+        
+        await registrarBitacora(req, 'ELIMINAR', 'Periodo', id, `Periodo eliminado`);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error en DELETE /periodos/:id:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Activar/Desactivar periodo
+app.patch('/api/periodos/:id/estado', verificarToken, verificarRol(['Administrador']), async (req, res) => {
+    try {
+        if (!pool) return res.status(503).json({ error: 'Base de datos no disponible' });
+        const id = req.params.id;
+        const { estado } = req.body;
+        
+        // Si se va a activar, desactivar todos los demás
+        if (estado === 1) {
+            await pool.request().query('UPDATE PeriodoAcademico SET estado = 0 WHERE estado = 1');
+        }
+        
+        await pool.request()
+            .input('id', sql.Int, id)
+            .input('estado', sql.Int, estado)
+            .query('UPDATE PeriodoAcademico SET estado = @estado WHERE id_periodo = @id');
+        
+        await registrarBitacora(req, estado === 1 ? 'ACTIVAR' : 'INACTIVAR', 'Periodo', id, `Periodo ${estado === 1 ? 'activado' : 'inactivado'}`);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error en PATCH /periodos/:id/estado:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -376,8 +803,9 @@ app.listen(PORT, () => {
     console.log(`   GET    /api/oferta/secciones - Oferta académica`);
     console.log(`   POST   /api/matriculas - Matricular`);
     console.log(`   GET    /api/planes - Planes de estudio`);
+    console.log(`   GET    /api/planes/estudiante - Planes por carrera`);
     console.log(`   GET    /api/reportes/matriculas - Reporte matrículas`);
-    console.log(`   GET    /api/reportes/financieros - Reporte financiero`);
+    console.log(`   GET    /api/reportes/financiero - Reporte financiero`);
     console.log(`   GET    /api/reportes/estudiantes - Reporte estudiantes`);
     console.log(`   GET    /api/admin/bitacora - Bitácora de auditoría`);
     console.log(`   POST   /api/admin/secciones - Crear sección`);
@@ -386,6 +814,12 @@ app.listen(PORT, () => {
     console.log(`   GET    /api/admin/matriculas - Listar matrículas admin`);
     console.log(`   POST   /api/admin/matriculas - Crear matrícula admin`);
     console.log(`   GET    /api/admin/facturas - Listar facturas admin`);
+    console.log(`   📅 CRUD Periodos Académicos:`);
+    console.log(`   GET    /api/periodos - Listar periodos`);
+    console.log(`   POST   /api/periodos - Crear periodo`);
+    console.log(`   PUT    /api/periodos/:id - Editar periodo`);
+    console.log(`   PATCH  /api/periodos/:id/estado - Activar/Desactivar periodo`);
+    console.log(`   DELETE /api/periodos/:id - Eliminar periodo`);
 });
 
 process.on('SIGINT', async () => {

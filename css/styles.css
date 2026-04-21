@@ -135,4 +135,274 @@ body { font-family: 'Inter', sans-serif; background: #0a0a0c; color: #e2e8f0; he
 .delete-msg { text-align: center; font-size: 14px; color: #9ca3af; margin-bottom: 1.5rem; }
 #toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 12px; font-weight: 600; z-index: 1000; display: none; box-shadow: 0 4px 20px rgba(0,0,0,0.3); animation: slideIn 0.3s ease; }
 @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-@media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .sidebar.open { transform: translateX(0); } .sidebar-close { display: block; } .mobile-menu-btn { display: block; } .main { margin-left: 0; } .stats-grid { grid-template-columns: 1fr; } .modal-grid { grid-template-columns: 1fr; } .filters-bar { flex-direction: column; } .filter-input { width: 100%; } }
+
+/* ==================== PLANES DE ESTUDIO ==================== */
+.planes-container {
+    padding: 1rem 0;
+}
+
+.planes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 1.5rem;
+}
+
+.plan-card {
+    background: #161b22;
+    border: 1px solid #2d3748;
+    border-radius: 16px;
+    padding: 1.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.plan-card:hover {
+    transform: translateY(-4px);
+    border-color: #3b82f6;
+    box-shadow: 0 8px 20px rgba(59,130,246,0.2);
+}
+
+.plan-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.plan-header h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #e2e8f0;
+}
+
+.plan-badge {
+    background: rgba(16,185,129,0.2);
+    color: #4ade80;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.plan-carrera {
+    color: #60a5fa;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+.plan-stats {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding: 0.75rem 0;
+    border-top: 1px solid #2d3748;
+    border-bottom: 1px solid #2d3748;
+}
+
+.plan-stat {
+    flex: 1;
+    text-align: center;
+}
+
+.stat-number {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #3b82f6;
+}
+
+.stat-label {
+    font-size: 11px;
+    color: #8b949e;
+}
+
+.btn-ver-plan {
+    width: 100%;
+    padding: 10px;
+    background: transparent;
+    border: 1px solid #3b82f6;
+    border-radius: 10px;
+    color: #3b82f6;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-ver-plan:hover {
+    background: #3b82f6;
+    color: white;
+}
+
+/* Modal detalle plan */
+#modal-plan-detalle .modal {
+    width: 800px;
+    max-width: 90%;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+
+.plan-detalle-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #2d3748;
+}
+
+.plan-detalle-header h2 {
+    font-size: 1.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.plan-meta {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.meta-carrera, .meta-creditos, .meta-cursos {
+    font-size: 13px;
+    color: #8b949e;
+}
+
+.plan-malla-curricular h3 {
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
+}
+
+.cuatrimestre-section {
+    margin-bottom: 2rem;
+}
+
+.cuatrimestre-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding: 0.5rem 0;
+    border-bottom: 2px solid #3b82f6;
+}
+
+.cuatrimestre-header h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #60a5fa;
+}
+
+.cuatrimestre-creditos {
+    font-size: 12px;
+    color: #8b949e;
+}
+
+.cursos-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.curso-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    background: #0d1117;
+    border-radius: 10px;
+    transition: background 0.2s;
+}
+
+.curso-item:hover {
+    background: #1a1f2e;
+}
+
+.curso-info {
+    flex: 1;
+}
+
+.curso-codigo {
+    font-weight: 600;
+    font-size: 13px;
+    color: #3b82f6;
+}
+
+.curso-nombre {
+    font-size: 13px;
+    color: #e2e8f0;
+}
+
+.curso-requisito {
+    font-size: 11px;
+    color: #8b949e;
+    margin-top: 4px;
+}
+
+.curso-creditos-badge {
+    background: #1f2937;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #4ade80;
+}
+
+.loading-spinner, .empty-state, .error-state {
+    text-align: center;
+    padding: 3rem;
+    color: #8b949e;
+}
+
+.error-state {
+    color: #f87171;
+}
+
+.carrera-badge {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #60a5fa;
+    background: rgba(59,130,246,0.1);
+    padding: 4px 12px;
+    border-radius: 20px;
+    display: inline-block;
+}
+
+/* Responsive */
+@media (max-width: 768px) { 
+    .sidebar { transform: translateX(-100%); } 
+    .sidebar.open { transform: translateX(0); } 
+    .sidebar-close { display: block; } 
+    .mobile-menu-btn { display: block; } 
+    .main { margin-left: 0; } 
+    .stats-grid { grid-template-columns: 1fr; } 
+    .modal-grid { grid-template-columns: 1fr; } 
+    .filters-bar { flex-direction: column; } 
+    .filter-input { width: 100%; }
+    .planes-grid { grid-template-columns: 1fr; }
+    #modal-plan-detalle .modal { width: 95%; }
+    .curso-item { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .curso-creditos-badge { align-self: flex-start; }
+}
+
+.btn-warning {
+    background: #f59e0b;
+    border: none;
+    border-radius: 6px;
+    padding: 5px 12px;
+    color: white;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.btn-warning:hover {
+    background: #d97706;
+}
+
+.btn-success {
+    background: #10b981;
+    border: none;
+    border-radius: 6px;
+    padding: 5px 12px;
+    color: white;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.btn-success:hover {
+    background: #059669;
+}

@@ -95,6 +95,7 @@ function renderSidebarMenu() {
         menuItems = [
             { id: 'dashboard', name: 'Dashboard', icon: 'M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z' },
             { id: 'gestion-academica', name: 'Gestión Académica', icon: 'M4 6h16v2H4V6zm2-4h12v2H6V2zm16 4H2v12h20V6z' },
+            { id: 'periodos', name: 'Períodos Académicos', icon: 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14h-2v-4H8v-2h4V7h2v4h4v2h-4v4z' },
             { id: 'oferta', name: 'Oferta Académica', icon: 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z' },
             { id: 'matriculas', name: 'Matrículas', icon: 'M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z' },
             { id: 'pagos', name: 'Pagos', icon: 'M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z' },
@@ -106,12 +107,14 @@ function renderSidebarMenu() {
         menuItems = [
             { id: 'dashboard', name: 'Mi Dashboard', icon: 'M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z' },
             { id: 'oferta', name: 'Oferta Académica', icon: 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z' },
+            { id: 'planes-estudio', name: 'Planes de Estudio', icon: 'M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4h-4V9h4V5h2v4h4v2z' },
             { id: 'matriculas', name: 'Mis Matrículas', icon: 'M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z' },
             { id: 'pagos', name: 'Mis Pagos', icon: 'M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z' }
         ];
     }
     navMenu.innerHTML = menuItems.map(item => `<div class="nav-item" data-page="${item.id}" onclick="showPage('${item.id}')"><svg viewBox="0 0 24 24" fill="currentColor"><path d="${item.icon}"/></svg>${item.name}</div>`).join('');
 }
+
 function showPage(pageId) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -119,15 +122,35 @@ function showPage(pageId) {
     const pageMap = {
         'dashboard': 'page-dashboard',
         'gestion-academica': 'page-gestion-academica',
+        'periodos': 'page-periodos',
         'oferta': 'page-oferta',
         'matriculas': 'page-matriculas',
         'pagos': 'page-pagos',
         'reportes': 'page-reportes',
         'usuarios': 'page-usuarios',
-        'bitacora': 'page-bitacora'
+        'bitacora': 'page-bitacora',
+        'planes-estudio': 'page-planes-estudio'
     };
     
-    const targetPage = document.getElementById(pageMap[pageId]);
+    let targetPage = document.getElementById(pageMap[pageId]);
+    
+    // Crear página de planes-estudio si no existe
+    if (pageId === 'planes-estudio' && !targetPage) {
+        const content = document.querySelector('.content');
+        const newPage = document.createElement('div');
+        newPage.id = 'page-planes-estudio';
+        newPage.className = 'page';
+        newPage.innerHTML = `
+            <div class="page-header">
+                <h3>📖 Planes de Estudio</h3>
+                <p>Explora los planes de estudio disponibles para tu carrera</p>
+            </div>
+            <div id="planes-estudiante-container" class="planes-container"></div>
+        `;
+        content.appendChild(newPage);
+        targetPage = newPage;
+    }
+    
     if (targetPage) targetPage.classList.add('active');
     
     const activeNav = document.querySelector(`.nav-item[data-page="${pageId}"]`);
@@ -136,26 +159,35 @@ function showPage(pageId) {
     const titles = {
         dashboard: 'Dashboard',
         'gestion-academica': 'Gestión Académica',
+        periodos: 'Períodos Académicos',
         oferta: 'Oferta Académica',
-        matriculas: 'Matrículas',
-        pagos: 'Pagos',
+        matriculas: currentUser.rol === 'Administrador' ? 'Matrículas' : 'Mis Matrículas',
+        pagos: currentUser.rol === 'Administrador' ? 'Pagos' : 'Mis Pagos',
         reportes: 'Reportes',
         usuarios: 'Usuarios',
-        bitacora: 'Bitácora de Auditoría'
+        bitacora: 'Bitácora de Auditoría',
+        'planes-estudio': 'Planes de Estudio'
     };
     document.getElementById('page-title').textContent = titles[pageId] || 'UniMatricula';
     document.getElementById('page-subtitle').textContent = currentUser.rol === 'Administrador' ? 'Panel de administración' : 'Gestión académica';
     
-    // ========== NUEVO: Mostrar vistas según el rol ==========
+    // Cargar contenido según la página
     if (pageId === 'dashboard') {
         cargarDashboard();
     }
     if (pageId === 'gestion-academica') {
-        // Solo administrador puede ver gestión académica
         if (currentUser.rol === 'Administrador') {
             cargarCarreras();
             cargarCursos();
             cargarPlanes();
+        } else {
+            toast('No tiene permisos para acceder a esta página', '#ef4444');
+            showPage('dashboard');
+        }
+    }
+    if (pageId === 'periodos') {
+        if (currentUser.rol === 'Administrador') {
+            cargarPeriodos();
         } else {
             toast('No tiene permisos para acceder a esta página', '#ef4444');
             showPage('dashboard');
@@ -167,21 +199,21 @@ function showPage(pageId) {
     }
     if (pageId === 'matriculas') {
         if (currentUser.rol === 'Administrador') {
-            cargarMatriculasAdmin(); // Vista de admin
+            cargarMatriculas();
         } else {
-            cargarMisMatriculas(); // Vista de estudiante
+            cargarMisMatriculas();
         }
     }
     if (pageId === 'pagos') {
         if (currentUser.rol === 'Administrador') {
-            cargarFacturasAdmin(); // Vista de admin
+            cargarFacturas();
         } else {
-            cargarMisFacturas(); // Vista de estudiante
+            cargarMisFacturas();
         }
     }
     if (pageId === 'usuarios') {
         if (currentUser.rol === 'Administrador') {
-            cargarUsuariosAdmin();
+            cargarUsuarios();
         } else {
             toast('No tiene permisos para acceder a esta página', '#ef4444');
             showPage('dashboard');
@@ -203,12 +235,16 @@ function showPage(pageId) {
             showPage('dashboard');
         }
     }
+    if (pageId === 'planes-estudio') {
+        cargarPlanesEstudiante();
+    }
     
     closeNotif();
 }
+
 // ==================== CARGAR DATOS INICIALES ====================
 async function cargarDatosIniciales() {
-    await Promise.all([cargarCarreras(), cargarCursos(), cargarPeriodos(), cargarPlanes()]);
+    await Promise.all([cargarCarreras(), cargarCursos(), cargarPeriodosLista(), cargarPlanes()]);
 }
 
 async function cargarCarreras() {
@@ -230,6 +266,9 @@ async function cargarCarreras() {
         const selectOfertaCarrera = document.getElementById('oferta-filter-carrera');
         if (selectOfertaCarrera) {
             selectOfertaCarrera.innerHTML = '<option value="">Todas las carreras</option>' + allCarreras.map(c => `<option value="${c.nombre}">${c.nombre}</option>`).join('');
+            if (currentUser && currentUser.rol !== 'Administrador') {
+                selectOfertaCarrera.style.display = 'none';
+            }
         }
         renderCarreras();
     } catch (error) { console.error('Error cargando carreras:', error); }
@@ -253,7 +292,7 @@ async function cargarCursos() {
         const search = document.getElementById('search-curso')?.value || '';
         const id_programa = document.getElementById('filtro-carrera-curso')?.value || '';
         let url = `/cursos/buscar?search=${encodeURIComponent(search)}`;
-        if (id_programa) url += `&id_programa=${id_programa}`;
+        if (id_programa && currentUser.rol === 'Administrador') url += `&id_programa=${id_programa}`;
         const cursos = await apiRequest(url);
         allCursos = cursos;
         const tbody = document.getElementById('cursos-tbody');
@@ -264,14 +303,14 @@ async function cargarCursos() {
                 <td>${c.codigo}</td><td>${c.nombre}</td><td>${c.creditos}</td>
                 <td>${c.programa_nombre || '-'}</td>
                 <td><span class="badge ${c.estado === 'Activo' ? 'badge-green' : 'badge-danger'}">${c.estado}</span></td>
-                <td><button class="btn-small" onclick="editarCurso(${c.id_curso})">Editar</button>
-                <button class="btn-small btn-danger" onclick="cambiarEstadoCurso(${c.id_curso}, '${c.estado === 'Activo' ? 'Inactivo' : 'Activo'}')">${c.estado === 'Activo' ? 'Inactivar' : 'Activar'}</button></td>
+                <td>${currentUser.rol === 'Administrador' ? `<button class="btn-small" onclick="editarCurso(${c.id_curso})">Editar</button>
+                <button class="btn-small btn-danger" onclick="cambiarEstadoCurso(${c.id_curso}, '${c.estado === 'Activo' ? 'Inactivo' : 'Activo'}')">${c.estado === 'Activo' ? 'Inactivar' : 'Activar'}</button>` : '-'}</td>
             </tr>
         `).join('');
     } catch (error) { console.error('Error cargando cursos:', error); }
 }
 
-async function cargarPeriodos() {
+async function cargarPeriodosLista() {
     try {
         const response = await fetch(`${API_URL}/periodos`, { headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {} });
         if (response.ok) allPeriodos = await response.json();
@@ -302,7 +341,7 @@ function renderPlanes() {
 async function cargarDashboard() {
     document.getElementById('welcome-title').textContent = `Bienvenido, ${currentUser.nombre}`;
     if (allPeriodos.length > 0) {
-        const periodoActual = allPeriodos.find(p => p.activo === 1) || allPeriodos[0];
+        const periodoActual = allPeriodos.find(p => p.estado === 1) || allPeriodos[0];
         document.getElementById('period-info').textContent = `Periodo actual: ${periodoActual.nombre} ${periodoActual.anio}`;
     }
     const statsContainer = document.getElementById('dashboard-stats');
@@ -316,7 +355,7 @@ async function cargarDashboard() {
             statsContainer.innerHTML = `<div class="stat-card"><div class="val">${matriculas.length}</div><div class="lbl">Cursos</div></div>
                 <div class="stat-card"><div class="val">${totalCreditos}</div><div class="lbl">Créditos</div></div>
                 <div class="stat-card"><div class="val">${deudaTotal.toLocaleString()}</div><div class="lbl">Deuda</div></div>`;
-            if (deudaTotal > 0) debtContainer.innerHTML = `<div class="debt-warning"><span>Advertencia: Tienes una deuda pendiente de ${deudaTotal.toLocaleString()}</span></div>`;
+            if (deudaTotal > 0) debtContainer.innerHTML = `<div class="debt-warning"><span>⚠️ Advertencia: Tienes una deuda pendiente de ${deudaTotal.toLocaleString()}</span></div>`;
             else debtContainer.innerHTML = '';
             const tbody = document.getElementById('my-courses-tbody');
             if (matriculas.length === 0) tbody.innerHTML = '<tr><td colspan="6">No tienes cursos matriculados</td></tr>';
@@ -353,6 +392,188 @@ async function cargarProgresoCreditos() {
     } catch (error) { console.error('Error cargando progreso:', error); }
 }
 
+// ==================== CRUD PERIODOS ACADÉMICOS ====================
+async function cargarPeriodos() {
+    const tbody = document.getElementById('periodos-tbody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '<tr><td colspan="11">Cargando...</td></tr>';
+    
+    try {
+        const periodos = await apiRequest('/periodos');
+        allPeriodos = periodos;
+        
+        const search = document.getElementById('search-periodo')?.value.toLowerCase() || '';
+        const filtroEstado = document.getElementById('filtro-estado-periodo')?.value || '';
+        
+        let filtered = periodos;
+        if (search) {
+            filtered = filtered.filter(p => 
+                p.nombre?.toLowerCase().includes(search) || 
+                p.anio?.toString().includes(search)
+            );
+        }
+        if (filtroEstado !== '') {
+            filtered = filtered.filter(p => p.estado === parseInt(filtroEstado));
+        }
+        
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="11">No hay períodos registrados</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = filtered.map(p => `
+            <tr>
+                <td>${p.id_periodo}</td>
+                <td><strong>${p.nombre || '-'}</strong></td>
+                <td>${p.anio || '-'}</td>
+                <td>${p.fecha_inicio ? new Date(p.fecha_inicio).toLocaleDateString() : '-'}</td>
+                <td>${p.fecha_fin ? new Date(p.fecha_fin).toLocaleDateString() : '-'}</td>
+                <td>${p.fecha_inicio_matricula ? new Date(p.fecha_inicio_matricula).toLocaleDateString() : '-'}</td>
+                <td>${p.fecha_fin_matricula ? new Date(p.fecha_fin_matricula).toLocaleDateString() : '-'}</td>
+                <td>${p.fecha_inicio_ajustes ? new Date(p.fecha_inicio_ajustes).toLocaleDateString() : '-'}</td>
+                <td>${p.fecha_fin_ajustes ? new Date(p.fecha_fin_ajustes).toLocaleDateString() : '-'}</td>
+                <td>
+                    <span class="badge ${p.estado === 1 ? 'badge-green' : 'badge-danger'}">
+                        ${p.estado === 1 ? 'Activo' : 'Inactivo'}
+                    </span>
+                </td>
+                <td>
+                    <button class="btn-small" onclick="editarPeriodo(${p.id_periodo})">Editar</button>
+                    ${p.estado === 1 ? 
+                        `<button class="btn-small btn-warning" onclick="cambiarEstadoPeriodo(${p.id_periodo}, 0)">Desactivar</button>` :
+                        `<button class="btn-small btn-success" onclick="cambiarEstadoPeriodo(${p.id_periodo}, 1)">Activar</button>`
+                    }
+                    <button class="btn-small btn-danger" onclick="eliminarPeriodo(${p.id_periodo})">Eliminar</button>
+                </td>
+            </tr>
+        `).join('');
+        
+    } catch (error) {
+        console.error('Error cargando periodos:', error);
+        tbody.innerHTML = `<tr><td colspan="11" style="color:red">Error: ${error.message}</td></tr>`;
+    }
+}
+
+function mostrarModalPeriodo() {
+    document.getElementById('periodo-id').value = '';
+    document.getElementById('periodo-nombre').value = '';
+    document.getElementById('periodo-anio').value = new Date().getFullYear();
+    document.getElementById('periodo-fecha-inicio').value = '';
+    document.getElementById('periodo-fecha-fin').value = '';
+    document.getElementById('periodo-fecha-inicio-matricula').value = '';
+    document.getElementById('periodo-fecha-fin-matricula').value = '';
+    document.getElementById('periodo-fecha-inicio-ajustes').value = '';
+    document.getElementById('periodo-fecha-fin-ajustes').value = '';
+    document.getElementById('periodo-estado').value = '0';
+    document.getElementById('periodo-modal-title').textContent = '+ Nuevo Período';
+    openMod('modal-periodo');
+}
+
+async function editarPeriodo(id) {
+    try {
+        const periodo = allPeriodos.find(p => p.id_periodo === id);
+        if (!periodo) {
+            toast('Período no encontrado', '#ef4444');
+            return;
+        }
+        
+        document.getElementById('periodo-id').value = periodo.id_periodo;
+        document.getElementById('periodo-nombre').value = periodo.nombre || '';
+        document.getElementById('periodo-anio').value = periodo.anio || '';
+        document.getElementById('periodo-fecha-inicio').value = periodo.fecha_inicio || '';
+        document.getElementById('periodo-fecha-fin').value = periodo.fecha_fin || '';
+        document.getElementById('periodo-fecha-inicio-matricula').value = periodo.fecha_inicio_matricula || '';
+        document.getElementById('periodo-fecha-fin-matricula').value = periodo.fecha_fin_matricula || '';
+        document.getElementById('periodo-fecha-inicio-ajustes').value = periodo.fecha_inicio_ajustes || '';
+        document.getElementById('periodo-fecha-fin-ajustes').value = periodo.fecha_fin_ajustes || '';
+        document.getElementById('periodo-estado').value = periodo.estado || 0;
+        document.getElementById('periodo-modal-title').textContent = '✏️ Editar Período';
+        openMod('modal-periodo');
+    } catch (error) {
+        toast(`Error: ${error.message}`, '#ef4444');
+    }
+}
+
+async function guardarPeriodo() {
+    const id = document.getElementById('periodo-id').value;
+    const nombre = document.getElementById('periodo-nombre').value.trim();
+    const anio = parseInt(document.getElementById('periodo-anio').value);
+    const fecha_inicio = document.getElementById('periodo-fecha-inicio').value || null;
+    const fecha_fin = document.getElementById('periodo-fecha-fin').value || null;
+    const fecha_inicio_matricula = document.getElementById('periodo-fecha-inicio-matricula').value || null;
+    const fecha_fin_matricula = document.getElementById('periodo-fecha-fin-matricula').value || null;
+    const fecha_inicio_ajustes = document.getElementById('periodo-fecha-inicio-ajustes').value || null;
+    const fecha_fin_ajustes = document.getElementById('periodo-fecha-fin-ajustes').value || null;
+    const estado = parseInt(document.getElementById('periodo-estado').value);
+    
+    if (!nombre || !anio) {
+        toast('Nombre y año son obligatorios', '#ef4444');
+        return;
+    }
+    
+    try {
+        if (id) {
+            await apiRequest(`/periodos/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify({ 
+                    nombre, anio, fecha_inicio, fecha_fin, 
+                    fecha_inicio_matricula, fecha_fin_matricula,
+                    fecha_inicio_ajustes, fecha_fin_ajustes, estado
+                })
+            });
+            toast('Período actualizado', '#10b981');
+        } else {
+            await apiRequest('/periodos', {
+                method: 'POST',
+                body: JSON.stringify({ 
+                    nombre, anio, fecha_inicio, fecha_fin, 
+                    fecha_inicio_matricula, fecha_fin_matricula,
+                    fecha_inicio_ajustes, fecha_fin_ajustes, estado
+                })
+            });
+            toast('Período creado exitosamente', '#10b981');
+        }
+        closeMods();
+        cargarPeriodos();
+        cargarPeriodosLista();
+    } catch (error) {
+        toast(`Error: ${error.message}`, '#ef4444');
+    }
+}
+
+async function cambiarEstadoPeriodo(id, nuevoEstado) {
+    try {
+        await apiRequest(`/periodos/${id}/estado`, {
+            method: 'PATCH',
+            body: JSON.stringify({ estado: nuevoEstado })
+        });
+        toast(`Período ${nuevoEstado === 1 ? 'activado' : 'desactivado'}`, '#10b981');
+        cargarPeriodos();
+        cargarPeriodosLista();
+    } catch (error) {
+        toast(`Error: ${error.message}`, '#ef4444');
+    }
+}
+
+async function eliminarPeriodo(id) {
+    deleteCallback = async () => {
+        try {
+            await apiRequest(`/periodos/${id}`, { method: 'DELETE' });
+            toast('Período eliminado', '#10b981');
+            closeMods();
+            cargarPeriodos();
+            cargarPeriodosLista();
+        } catch (error) {
+            toast(`Error: ${error.message}`, '#ef4444');
+            closeMods();
+        }
+    };
+    const periodo = allPeriodos.find(p => p.id_periodo === id);
+    document.getElementById('del-name').textContent = `${periodo?.nombre} ${periodo?.anio || 'Período'}`;
+    openMod('modal-delete');
+}
+
 // ==================== OFERTA ACADÉMICA ====================
 async function cargarPeriodosOferta() {
     const container = document.getElementById('period-tabs-oferta');
@@ -361,11 +582,13 @@ async function cargarPeriodosOferta() {
         const periodos = await apiRequest('/periodos');
         if (periodos.length === 0) { container.innerHTML = '<span>No hay periodos</span>'; return; }
         allPeriodos = periodos;
-        const activo = periodos.find(p => p.activo === 1) || periodos[0];
+        const activo = periodos.find(p => p.estado === 1) || periodos[0];
         currentPeriodoId = activo.id_periodo;
         container.innerHTML = periodos.map(p => `<button class="tab-btn ${p.id_periodo === currentPeriodoId ? 'active' : ''}" onclick="cambiarPeriodoOferta(${p.id_periodo})">${p.nombre} ${p.anio}</button>`).join('');
         const btnSeccion = document.getElementById('btn-nuevo-seccion');
-        if (btnSeccion) btnSeccion.style.display = currentUser.rol === 'Administrador' ? 'inline-flex' : 'none';
+        if (btnSeccion) {
+            btnSeccion.style.display = currentUser.rol === 'Administrador' ? 'inline-flex' : 'none';
+        }
     } catch (error) { console.error('Error cargando periodos:', error); }
 }
 
@@ -380,7 +603,7 @@ async function cargarOferta() {
     try {
         allSecciones = await apiRequest(`/oferta/secciones?periodo_id=${currentPeriodoId}`);
         if (allSecciones.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6">No hay secciones disponibles. Use "Nueva Sección" para crear una.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6">No hay secciones disponibles para tu carrera.纽约</tr>';
         } else {
             tbody.innerHTML = allSecciones.map(sec => {
                 const disponibles = sec.disponibles || 0;
@@ -409,137 +632,11 @@ async function matricularEnSeccion(idSeccion) {
         toast('Matrícula registrada exitosamente', '#10b981');
         cargarOferta();
         cargarDashboard();
-        if (currentUser.rol !== 'Administrador') { cargarMatriculas(); cargarFacturas(); }
+        if (currentUser.rol !== 'Administrador') { cargarMisMatriculas(); cargarMisFacturas(); }
     } catch (error) { toast(`Error: ${error.message}`, '#ef4444'); }
 }
 
-// ==================== FUNCIONES CRUD SECCIONES ====================
-function abrirNuevaSeccion() {
-    const cursoSelect = document.getElementById('seccion-curso-id');
-    cursoSelect.innerHTML = '<option value="">Seleccione un curso</option>';
-    allCursos.forEach(curso => {
-        cursoSelect.innerHTML += `<option value="${curso.id_curso}">${curso.codigo} - ${curso.nombre} (${curso.creditos} créditos)</option>`;
-    });
-    
-    const periodoSelect = document.getElementById('seccion-periodo-id');
-    periodoSelect.innerHTML = '<option value="">Seleccione un periodo</option>';
-    allPeriodos.forEach(periodo => {
-        periodoSelect.innerHTML += `<option value="${periodo.id_periodo}">${periodo.nombre} ${periodo.anio}</option>`;
-    });
-    
-    document.getElementById('seccion-id').value = '';
-    document.getElementById('seccion-numero').value = '';
-    document.getElementById('seccion-docente').value = '';
-    document.getElementById('seccion-aula').value = '';
-    document.getElementById('seccion-horario').value = '';
-    document.getElementById('seccion-cupo').value = '30';
-    document.getElementById('seccion-modal-title').textContent = '+ Nueva Sección';
-    
-    openMod('modal-seccion');
-}
-
-async function editarSeccion(idSeccion) {
-    const seccion = allSecciones.find(s => s.id_seccion === idSeccion);
-    if (!seccion) {
-        toast('Sección no encontrada', '#ef4444');
-        return;
-    }
-    
-    const cursoSelect = document.getElementById('seccion-curso-id');
-    cursoSelect.innerHTML = '<option value="">Seleccione un curso</option>';
-    allCursos.forEach(curso => {
-        cursoSelect.innerHTML += `<option value="${curso.id_curso}" ${curso.id_curso === seccion.id_curso ? 'selected' : ''}>${curso.codigo} - ${curso.nombre} (${curso.creditos} créditos)</option>`;
-    });
-    
-    const periodoSelect = document.getElementById('seccion-periodo-id');
-    periodoSelect.innerHTML = '<option value="">Seleccione un periodo</option>';
-    allPeriodos.forEach(periodo => {
-        periodoSelect.innerHTML += `<option value="${periodo.id_periodo}" ${periodo.id_periodo === seccion.id_periodo ? 'selected' : ''}>${periodo.nombre} ${periodo.anio}</option>`;
-    });
-    
-    document.getElementById('seccion-id').value = seccion.id_seccion;
-    document.getElementById('seccion-numero').value = seccion.numero_seccion || '';
-    document.getElementById('seccion-docente').value = seccion.docente || '';
-    document.getElementById('seccion-aula').value = seccion.aula || '';
-    document.getElementById('seccion-horario').value = seccion.horario || '';
-    document.getElementById('seccion-cupo').value = seccion.cupo || 30;
-    document.getElementById('seccion-modal-title').textContent = 'Editar Sección';
-    
-    openMod('modal-seccion');
-}
-
-async function guardarSeccion() {
-    const id = document.getElementById('seccion-id').value;
-    const id_curso = document.getElementById('seccion-curso-id').value;
-    const id_periodo = document.getElementById('seccion-periodo-id').value;
-    const numero_seccion = document.getElementById('seccion-numero').value || 1;
-    const docente = document.getElementById('seccion-docente').value.trim();
-    const aula = document.getElementById('seccion-aula').value.trim();
-    const horario = document.getElementById('seccion-horario').value.trim();
-    const cupo = parseInt(document.getElementById('seccion-cupo').value);
-    
-    if (!id_curso || !id_periodo) {
-        toast('Seleccione un curso y un periodo', '#ef4444');
-        return;
-    }
-    
-    if (!docente || !horario) {
-        toast('El docente y horario son obligatorios', '#ef4444');
-        return;
-    }
-    
-    if (cupo < 1) {
-        toast('El cupo debe ser al menos 1', '#ef4444');
-        return;
-    }
-    
-    try {
-        if (id) {
-            await apiRequest(`/admin/secciones/${id}`, {
-                method: 'PUT',
-                body: JSON.stringify({ docente, aula, horario, cupo })
-            });
-            toast('Sección actualizada', '#10b981');
-        } else {
-            await apiRequest('/admin/secciones', {
-                method: 'POST',
-                body: JSON.stringify({ 
-                    id_curso: parseInt(id_curso), 
-                    id_periodo: parseInt(id_periodo), 
-                    numero_seccion: parseInt(numero_seccion), 
-                    docente, 
-                    aula, 
-                    horario, 
-                    cupo 
-                })
-            });
-            toast('Sección creada exitosamente', '#10b981');
-        }
-        closeMods();
-        cargarOferta();
-    } catch (error) {
-        toast(`Error: ${error.message}`, '#ef4444');
-    }
-}
-
-async function eliminarSeccion(idSeccion) {
-    deleteCallback = async () => {
-        try {
-            await apiRequest(`/admin/secciones/${idSeccion}`, { method: 'DELETE' });
-            toast('Sección eliminada', '#10b981');
-            closeMods();
-            cargarOferta();
-        } catch (error) {
-            toast(`Error: ${error.message}`, '#ef4444');
-            closeMods();
-        }
-    };
-    const seccion = allSecciones.find(s => s.id_seccion === idSeccion);
-    document.getElementById('del-name').textContent = `${seccion?.codigo} - ${seccion?.horario || 'Sección'}`;
-    openMod('modal-delete');
-}
-
-// ==================== MATRÍCULAS ====================
+// ==================== MATRÍCULAS ADMIN ====================
 async function cargarMatriculas() {
     const tbody = document.getElementById('matriculas-tbody');
     if (!tbody) return;
@@ -625,34 +722,27 @@ async function guardarMatricula() {
 async function cargarMisMatriculas() {
     const tbody = document.getElementById('matriculas-tbody');
     if (!tbody) return;
-    
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center">Cargando...<\/td><\/tr>';
-    
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center">Cargando...</td></tr>';
     try {
-        console.log('🔍 Cargando mis matrículas como estudiante...');
         const matriculas = await apiRequest('/matriculas/mis-matriculas');
-        console.log('📊 Matrículas recibidas:', matriculas);
-        
         if (!matriculas || matriculas.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center">No tienes matrículas registradas<\/td><\/tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center">No tienes matrículas registradas</td></tr>';
             return;
         }
-        
         tbody.innerHTML = matriculas.map(m => `
             <tr>
-                <td>${m.id_matricula}<\/td>
-                <td>${m.curso_nombre || 'N/A'}<\/td>
-                <td>${m.periodo_nombre || 'N/A'} ${m.periodo_anio || ''}<\/td>
-                <td>${m.creditos || 0}<\/td>
-                <td>${(m.monto || 0).toLocaleString()}<\/td>
-                <td><span class="badge ${m.estado === 'Confirmada' ? 'badge-green' : 'badge-danger'}">${m.estado}<\/span><\/td>
-                <td><button class="btn-small btn-danger" onclick="cancelarMiMatricula(${m.id_matricula})">Cancelar<\/button><\/td>
+                <td>${m.id_matricula}</td>
+                <td>${m.curso_nombre || 'N/A'}</td>
+                <td>${m.periodo_nombre || 'N/A'} ${m.periodo_anio || ''}</td>
+                <td>${m.creditos || 0}</td>
+                <td>${(m.monto || 0).toLocaleString()}</td>
+                <td><span class="badge ${m.estado === 'Confirmada' ? 'badge-green' : 'badge-danger'}">${m.estado}</span></td>
+                <td><button class="btn-small btn-danger" onclick="cancelarMiMatricula(${m.id_matricula})">Cancelar</button></td>
             </tr>
         `).join('');
-        
     } catch (error) {
         console.error('Error cargando mis matrículas:', error);
-        tbody.innerHTML = `<td><td colspan="7" style="text-align:center;color:red">Error cargando datos: ${error.message}<\/td><\/tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:red">Error cargando datos: ${error.message}</td></tr>`;
     }
 }
 
@@ -668,7 +758,7 @@ async function cancelarMiMatricula(idMatricula) {
     }
 }
 
-// ==================== PAGOS ====================
+// ==================== PAGOS ADMIN ====================
 async function cargarFacturas() {
     const tbody = document.getElementById('facturas-tbody');
     if (!tbody) return;
@@ -699,6 +789,38 @@ async function cargarFacturas() {
     } catch (error) { console.error('Error cargando facturas:', error); tbody.innerHTML = `<tr><td colspan="7" style="color:red">Error cargando datos: ${error.message}</td></tr>`; }
 }
 
+// ==================== MIS FACTURAS (ESTUDIANTE) ====================
+async function cargarMisFacturas() {
+    const tbody = document.getElementById('facturas-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '<td><td colspan="6" style="text-align:center">Cargando...<\/td><\/tr>';
+    try {
+        const facturas = await apiRequest('/pagos/mis-facturas');
+        if (!facturas || facturas.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">No tienes facturas pendientes<\/td><\/tr>';
+            return;
+        }
+        const pagadas = facturas.filter(f => f.estado === 'Pagada');
+        const pendientes = facturas.filter(f => f.estado === 'Pendiente');
+        const statsContainer = document.getElementById('pagos-stats');
+        if (statsContainer) statsContainer.innerHTML = `<div class="pago-stat"><div><div class="amount">${pagadas.reduce((s, f) => s + f.monto, 0).toLocaleString()}</div><div class="plbl">Total Pagado</div></div><div class="stat-icon green">✓</div></div>
+            <div class="pago-stat"><div><div class="amount">${pendientes.reduce((s, f) => s + f.monto, 0).toLocaleString()}</div><div class="plbl">Pendiente</div></div><div class="stat-icon amber">⏱</div></div>`;
+        tbody.innerHTML = facturas.map(f => `
+            <tr>
+                <td><span class="badge badge-blue">INV-${f.id_factura}</span><\/td>
+                <td>Matrícula<\/td>
+                <td>${f.monto.toLocaleString()}<\/td>
+                <td>${new Date(f.fecha_vencimiento).toLocaleDateString()}<\/td>
+                <td><span class="badge ${f.estado === 'Pagada' ? 'badge-green' : 'badge-amber'}">${f.estado}<\/span><\/td>
+                <td>${f.estado === 'Pendiente' ? `<button class="btn-pagar" onclick="abrirPagoFactura(${f.id_factura}, ${f.monto})">Pagar</button>` : 'Pagado'}<\/td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('Error cargando mis facturas:', error);
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:red">Error cargando datos: ${error.message}<\/td><\/tr>`;
+    }
+}
+
 function abrirPagoFactura(idFactura, monto) {
     const pagoInfo = document.getElementById('pago-info');
     pagoInfo.innerHTML = `<div><b>Factura:</b> INV-${idFactura}</div><div><b>Monto a pagar:</b> <span style="color:#10b981">${monto.toLocaleString()}</span></div>`;
@@ -714,7 +836,11 @@ async function procesarPago() {
         await apiRequest('/pagos/procesar', { method: 'POST', body: JSON.stringify({ id_factura: idFactura, metodo_pago: metodo, referencia }) });
         toast('Pago procesado exitosamente', '#10b981');
         closeMods();
-        cargarFacturas();
+        if (currentUser.rol === 'Administrador') {
+            cargarFacturas();
+        } else {
+            cargarMisFacturas();
+        }
         cargarDashboard();
     } catch (error) { toast(`Error: ${error.message}`, '#ef4444'); }
 }
@@ -747,7 +873,7 @@ async function generarReporte(tipo) {
         if (tipo === 'matriculas') {
             html += '<h4>Reporte de Matrículas</h4><table class="data-table"><thead><tr><th>Periodo</th><th>Total Matrículas</th><th>Estudiantes</th></tr></thead><tbody>';
             datos.forEach(d => html += `<tr><td>${d.periodo} ${d.anio}</td><td>${d.total_matriculas}</td><td>${d.total_estudiantes}</td></tr>`);
-            html += '</tbody><tr>';
+            html += '</tbody></table>';
         } else if (tipo === 'financiero') {
             html += `<h4>Reporte Financiero</h4><div class="stats-grid"><div class="stat-card"><div class="val">${(datos[0]?.total_pagado || 0).toLocaleString()}</div><div class="lbl">Total Pagado</div></div>
                 <div class="stat-card"><div class="val">${(datos[0]?.total_pendiente || 0).toLocaleString()}</div><div class="lbl">Total Pendiente</div></div>
@@ -765,7 +891,7 @@ async function generarReporte(tipo) {
             html += '</tbody></table>';
         } else if (tipo === 'pagos') {
             html += '<h4>Reporte de Pagos</h4><table class="data-table"><thead><tr><th>Factura</th><th>Estudiante</th><th>Monto</th><th>Estado</th><th>Fecha Pago</th></tr></thead><tbody>';
-            datos.forEach(d => html += `<td>
+            datos.forEach(d => html += `<tr>
                 <td><span class="badge badge-blue">INV-${d.id_factura}</span></td>
                 <td>${d.estudiante_nombre}</td>
                 <td>${d.monto.toLocaleString()}</td>
@@ -799,7 +925,7 @@ async function cargarUsuarios() {
                 `<button class="btn-small" onclick="cambiarRolUsuario(${u.id_usuario}, 'student')">Quitar Admin</button>`}
             <button class="btn-small btn-danger" onclick="eliminarUsuario(${u.id_usuario})">Eliminar</button></td>
         </tr>`).join('');
-    } catch (error) { console.error('Error cargando usuarios:', error); tbody.innerHTML = `</table><td colspan="8" style="color:red">Error cargando datos: ${error.message}</td></tr>`; }
+    } catch (error) { console.error('Error cargando usuarios:', error); tbody.innerHTML = `<td><td colspan="8" style="color:red">Error cargando datos: ${error.message}</td></tr>`; }
 }
 
 function mostrarModalUsuario() {
@@ -1106,6 +1232,273 @@ async function eliminarCursoPlan(idPlan, idCurso) {
     } catch (error) {
         toast(`Error: ${error.message}`, '#ef4444');
     }
+}
+
+// ==================== SECCIONES CRUD ====================
+function abrirNuevaSeccion() {
+    const cursoSelect = document.getElementById('seccion-curso-id');
+    cursoSelect.innerHTML = '<option value="">Seleccione un curso</option>';
+    allCursos.forEach(curso => {
+        cursoSelect.innerHTML += `<option value="${curso.id_curso}">${curso.codigo} - ${curso.nombre} (${curso.creditos} créditos)</option>`;
+    });
+    
+    const periodoSelect = document.getElementById('seccion-periodo-id');
+    periodoSelect.innerHTML = '<option value="">Seleccione un periodo</option>';
+    allPeriodos.forEach(periodo => {
+        periodoSelect.innerHTML += `<option value="${periodo.id_periodo}">${periodo.nombre} ${periodo.anio}</option>`;
+    });
+    
+    document.getElementById('seccion-id').value = '';
+    document.getElementById('seccion-numero').value = '';
+    document.getElementById('seccion-docente').value = '';
+    document.getElementById('seccion-aula').value = '';
+    document.getElementById('seccion-horario').value = '';
+    document.getElementById('seccion-cupo').value = '30';
+    document.getElementById('seccion-modal-title').textContent = '+ Nueva Sección';
+    
+    openMod('modal-seccion');
+}
+
+async function editarSeccion(idSeccion) {
+    const seccion = allSecciones.find(s => s.id_seccion === idSeccion);
+    if (!seccion) {
+        toast('Sección no encontrada', '#ef4444');
+        return;
+    }
+    
+    const cursoSelect = document.getElementById('seccion-curso-id');
+    cursoSelect.innerHTML = '<option value="">Seleccione un curso</option>';
+    allCursos.forEach(curso => {
+        cursoSelect.innerHTML += `<option value="${curso.id_curso}" ${curso.id_curso === seccion.id_curso ? 'selected' : ''}>${curso.codigo} - ${curso.nombre} (${curso.creditos} créditos)</option>`;
+    });
+    
+    const periodoSelect = document.getElementById('seccion-periodo-id');
+    periodoSelect.innerHTML = '<option value="">Seleccione un periodo</option>';
+    allPeriodos.forEach(periodo => {
+        periodoSelect.innerHTML += `<option value="${periodo.id_periodo}" ${periodo.id_periodo === seccion.id_periodo ? 'selected' : ''}>${periodo.nombre} ${periodo.anio}</option>`;
+    });
+    
+    document.getElementById('seccion-id').value = seccion.id_seccion;
+    document.getElementById('seccion-numero').value = seccion.numero_seccion || '';
+    document.getElementById('seccion-docente').value = seccion.docente || '';
+    document.getElementById('seccion-aula').value = seccion.aula || '';
+    document.getElementById('seccion-horario').value = seccion.horario || '';
+    document.getElementById('seccion-cupo').value = seccion.cupo || 30;
+    document.getElementById('seccion-modal-title').textContent = 'Editar Sección';
+    
+    openMod('modal-seccion');
+}
+
+async function guardarSeccion() {
+    const id = document.getElementById('seccion-id').value;
+    const id_curso = document.getElementById('seccion-curso-id').value;
+    const id_periodo = document.getElementById('seccion-periodo-id').value;
+    const numero_seccion = document.getElementById('seccion-numero').value || 1;
+    const docente = document.getElementById('seccion-docente').value.trim();
+    const aula = document.getElementById('seccion-aula').value.trim();
+    const horario = document.getElementById('seccion-horario').value.trim();
+    const cupo = parseInt(document.getElementById('seccion-cupo').value);
+    
+    if (!id_curso || !id_periodo) {
+        toast('Seleccione un curso y un periodo', '#ef4444');
+        return;
+    }
+    
+    if (!docente || !horario) {
+        toast('El docente y horario son obligatorios', '#ef4444');
+        return;
+    }
+    
+    if (cupo < 1) {
+        toast('El cupo debe ser al menos 1', '#ef4444');
+        return;
+    }
+    
+    try {
+        if (id) {
+            await apiRequest(`/admin/secciones/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify({ docente, aula, horario, cupo })
+            });
+            toast('Sección actualizada', '#10b981');
+        } else {
+            await apiRequest('/admin/secciones', {
+                method: 'POST',
+                body: JSON.stringify({ 
+                    id_curso: parseInt(id_curso), 
+                    id_periodo: parseInt(id_periodo), 
+                    numero_seccion: parseInt(numero_seccion), 
+                    docente, 
+                    aula, 
+                    horario, 
+                    cupo 
+                })
+            });
+            toast('Sección creada exitosamente', '#10b981');
+        }
+        closeMods();
+        cargarOferta();
+    } catch (error) {
+        toast(`Error: ${error.message}`, '#ef4444');
+    }
+}
+
+async function eliminarSeccion(idSeccion) {
+    deleteCallback = async () => {
+        try {
+            await apiRequest(`/admin/secciones/${idSeccion}`, { method: 'DELETE' });
+            toast('Sección eliminada', '#10b981');
+            closeMods();
+            cargarOferta();
+        } catch (error) {
+            toast(`Error: ${error.message}`, '#ef4444');
+            closeMods();
+        }
+    };
+    const seccion = allSecciones.find(s => s.id_seccion === idSeccion);
+    document.getElementById('del-name').textContent = `${seccion?.codigo} - ${seccion?.horario || 'Sección'}`;
+    openMod('modal-delete');
+}
+
+// ==================== PLANES DE ESTUDIO PARA ESTUDIANTES ====================
+async function cargarPlanesEstudiante() {
+    const container = document.getElementById('planes-estudiante-container');
+    if (!container) return;
+    
+    container.innerHTML = '<div class="loading-spinner">Cargando planes de estudio...</div>';
+    
+    try {
+        const planes = await apiRequest('/planes/estudiante');
+        
+        if (!planes || planes.length === 0) {
+            container.innerHTML = '<div class="empty-state">No hay planes de estudio disponibles para tu carrera</div>';
+            return;
+        }
+        
+        container.innerHTML = `
+            <div class="planes-grid">
+                ${planes.map(plan => `
+                    <div class="plan-card" onclick="verDetallePlan(${plan.id_plan})">
+                        <div class="plan-header">
+                            <h3>${escapeHtml(plan.nombre_plan)}</h3>
+                            <span class="plan-badge">${plan.estado}</span>
+                        </div>
+                        <div class="plan-carrera">🎓 ${escapeHtml(plan.carrera)}</div>
+                        <div class="plan-stats">
+                            <div class="plan-stat">
+                                <span class="stat-number">${plan.total_cursos || 0}</span>
+                                <span class="stat-label">Cursos</span>
+                            </div>
+                        </div>
+                        <button class="btn-ver-plan">Ver Plan de Estudio →</button>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    } catch (error) {
+        console.error('Error cargando planes:', error);
+        container.innerHTML = `<div class="error-state">Error al cargar planes: ${error.message}</div>`;
+    }
+}
+
+async function verDetallePlan(idPlan) {
+    const modalContent = document.getElementById('modal-plan-detalle-content');
+    if (!modalContent) return;
+    
+    modalContent.innerHTML = '<div class="loading-spinner">Cargando plan de estudio...</div>';
+    openMod('modal-plan-detalle');
+    
+    try {
+        const data = await apiRequest(`/planes/estudiante/${idPlan}`);
+        const { plan, cursos } = data;
+        
+        // Agrupar cursos por cuatrimestre
+        const cursosPorCuatrimestre = {};
+        cursos.forEach(curso => {
+            const cuatri = curso.cuatrimestre;
+            if (!cursosPorCuatrimestre[cuatri]) {
+                cursosPorCuatrimestre[cuatri] = [];
+            }
+            cursosPorCuatrimestre[cuatri].push(curso);
+        });
+        
+        // Ordenar cuatrimestres
+        const cuatrimestresOrdenados = Object.keys(cursosPorCuatrimestre).sort((a, b) => a - b);
+        
+        let cursosHtml = '';
+        for (const cuatri of cuatrimestresOrdenados) {
+            cursosHtml += `
+                <div class="cuatrimestre-section">
+                    <div class="cuatrimestre-header">
+                        <h4>📚 ${getCuatrimestreNombre(parseInt(cuatri))}</h4>
+                        <span class="cuatrimestre-creditos">${calcularCreditosCuatrimestre(cursosPorCuatrimestre[cuatri])} créditos</span>
+                    </div>
+                    <div class="cursos-lista">
+                        ${cursosPorCuatrimestre[cuatri].map(curso => `
+                            <div class="curso-item">
+                                <div class="curso-info">
+                                    <div class="curso-codigo">${escapeHtml(curso.codigo)}</div>
+                                    <div class="curso-nombre">${escapeHtml(curso.curso_nombre)}</div>
+                                    ${curso.requisito ? `<div class="curso-requisito">Requisito: ${escapeHtml(curso.requisito)}</div>` : ''}
+                                </div>
+                                <div class="curso-creditos-badge">${curso.creditos} créditos</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        const totalCreditos = cursos.reduce((sum, c) => sum + c.creditos, 0);
+        
+        modalContent.innerHTML = `
+            <div class="plan-detalle-header">
+                <h2>${escapeHtml(plan.nombre_plan)}</h2>
+                <div class="plan-meta">
+                    <span class="meta-carrera">🎓 ${escapeHtml(plan.carrera)}</span>
+                    <span class="meta-creditos">📊 ${totalCreditos} créditos totales</span>
+                    <span class="meta-cursos">📚 ${cursos.length} cursos</span>
+                </div>
+            </div>
+            <div class="plan-malla-curricular">
+                <h3>Malla Curricular</h3>
+                ${cursosHtml}
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error('Error cargando detalle del plan:', error);
+        modalContent.innerHTML = `<div class="error-state">Error al cargar el plan: ${error.message}</div>`;
+    }
+}
+
+function getCuatrimestreNombre(numero) {
+    const nombres = {
+        1: 'Primer Cuatrimestre',
+        2: 'Segundo Cuatrimestre',
+        3: 'Tercer Cuatrimestre',
+        4: 'Cuarto Cuatrimestre',
+        5: 'Quinto Cuatrimestre',
+        6: 'Sexto Cuatrimestre',
+        7: 'Séptimo Cuatrimestre',
+        8: 'Octavo Cuatrimestre',
+        9: 'Noveno Cuatrimestre',
+        10: 'Décimo Cuatrimestre',
+        11: 'Undécimo Cuatrimestre',
+        12: 'Duodécimo Cuatrimestre'
+    };
+    return nombres[numero] || `${numero}° Cuatrimestre`;
+}
+
+function calcularCreditosCuatrimestre(cursos) {
+    return cursos.reduce((sum, c) => sum + c.creditos, 0);
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 // ==================== FUNCIONES GENERALES ====================
