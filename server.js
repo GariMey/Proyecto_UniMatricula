@@ -23,25 +23,19 @@ const CONFIG = {
 
 // ==================== CONFIGURACIÓN SQL SERVER ====================
 const dbConfig = {
-    server: 'localhost',
+    server: 'tiusr19pl.cuc-carrera-ti.ac.cr',  // ← ESTE es tu servidor
     port: 1433,
     database: 'MatriculaUNI',
-    user: 'sa',
-    password: '1234',
+    user: 'GARITA',
+    password: 'GARITA123',  // ← La que usaste en Plesk
     options: {
         trustServerCertificate: true,
         enableArithAbort: true,
         encrypt: false,
         connectTimeout: 30000,
         requestTimeout: 30000
-    },
-    pool: {
-        max: 10,
-        min: 0,
-        idleTimeoutMillis: 30000
     }
 };
-
 let pool = null;
 let reconnectInterval = null;
 
