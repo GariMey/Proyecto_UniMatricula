@@ -10,9 +10,9 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-
+ 
 <!-- PANTALLA DE LOGIN -->
-<div id="login-screen">
+<div id="login-screen"> 
     <div class="login-card">
         <div class="login-icon">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="#3b82f6">
@@ -21,14 +21,8 @@
         </div>
         <h1>UniMatricula</h1>
         <p>Sistema de Matrícula Universitaria</p>
-        
-        <div class="auth-tabs">
-            <button class="auth-tab active" onclick="switchAuthTab('login')">Iniciar Sesión</button>
-            <button class="auth-tab" onclick="switchAuthTab('register')">Registrarse</button>
-        </div>
-        
-        <!-- Login Form -->
-        <div id="loginForm" class="auth-form">
+ 
+        <div class="auth-form">
             <div class="login-field">
                 <label>Correo Electrónico</label>
                 <input type="email" id="login-email" placeholder="usuario@universidad.edu">
@@ -37,66 +31,14 @@
                 <label>Contraseña</label>
                 <input type="password" id="login-password" placeholder="••••••••">
             </div>
-            <div class="login-field">
-                <label>Tipo de usuario</label>
-                <select id="login-role">
-                    <option value="student">Estudiante</option>
-                    <option value="admin">Administrador</option>
-                </select>
-            </div>
-            <button class="btn-login" onclick="doManualLogin()">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-                Iniciar Sesión
-            </button>
-            <button class="btn-sso" onclick="doLoginWithSSO()">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
-                SSO Institucional
-            </button>
-        </div>
-        
-        <!-- Register Form -->
-        <div id="registerForm" class="auth-form" style="display: none;">
-            <div class="login-field">
-                <label>Nombre Completo</label>
-                <input type="text" id="regName" placeholder="Juan Pérez">
-            </div>
-            <div class="login-field">
-                <label>Correo Electrónico</label>
-                <input type="email" id="regEmail" placeholder="juan@universidad.edu">
-            </div>
-            <div class="login-field">
-                <label>Carnet</label>
-                <input type="text" id="regCarnet" placeholder="20250001">
-            </div>
-            <div class="login-field">
-                <label>Carrera</label>
-                <select id="regCarrera">
-                    <option value="">Seleccione su carrera</option>
-                    <option value="1">Ingeniería en Sistemas</option>
-                    <option value="2">Administración de Empresas</option>
-                    <option value="3">Contaduría Pública</option>
-                </select>
-            </div>
-            <div class="login-field">
-                <label>Contraseña</label>
-                <input type="password" id="regPassword" placeholder="••••••••">
-            </div>
-            <div class="login-field">
-                <label>Confirmar Contraseña</label>
-                <input type="password" id="regConfirmPassword" placeholder="••••••••">
-            </div>
-            <button class="btn-login" onclick="register()">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-                Registrarse
-            </button>
-            <p class="register-note">* Los estudiantes se registran automáticamente con rol de Estudiante</p>
+            <button class="btn-login" onclick="doManualLogin()">Iniciar Sesión</button>
+            <button class="btn-sso" onclick="doLoginWithSSO()">SSO Institucional</button>
         </div>
     </div>
 </div>
-
+ 
 <!-- APLICACIÓN PRINCIPAL -->
 <div id="app">
-    <!-- SIDEBAR -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <div class="sidebar-logo">
@@ -105,9 +47,8 @@
                 </svg>
                 <span>UniMatricula</span>
             </div>
-            <button class="sidebar-close" id="sidebarClose">✕</button>
+            <button class="sidebar-close" id="sidebarClose">X</button>
         </div>
-        
         <div class="user-profile" id="userProfile">
             <div class="user-avatar" id="user-avatar">JD</div>
             <div class="user-details">
@@ -116,32 +57,20 @@
                 <span class="role-badge" id="user-role-badge"></span>
             </div>
         </div>
-        
         <nav class="nav-menu" id="nav-menu"></nav>
-        
         <div class="sidebar-footer">
-            <button class="btn-logout" onclick="doLogout()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
-                Cerrar Sesión
-            </button>
+            <button class="btn-logout" onclick="doLogout()">Cerrar Sesión</button>
         </div>
     </div>
     
-    <!-- MAIN CONTENT -->
     <div class="main">
         <div class="topbar">
-            <button class="mobile-menu-btn" id="mobileMenuBtn">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
-            </button>
+            <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
             <div class="page-info">
                 <h2 id="page-title">Dashboard</h2>
                 <p id="page-subtitle">Panel de control</p>
             </div>
             <div class="topbar-actions">
-                <button class="btn-icon" onclick="exportReport()" title="Exportar reporte">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
-                    Exportar
-                </button>
                 <div class="notif-btn" id="notif-trigger" onclick="toggleNotif()">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
                     <span class="notif-badge" id="notif-count">0</span>
@@ -150,10 +79,7 @@
         </div>
         
         <div class="notif-panel" id="notif-panel">
-            <div class="notif-header">
-                <h3>Notificaciones</h3>
-                <button class="notif-close" onclick="toggleNotif()">✕</button>
-            </div>
+            <div class="notif-header"><h3>Notificaciones</h3><button class="notif-close" onclick="toggleNotif()">X</button></div>
             <div class="notif-list" id="notifications-list"></div>
         </div>
         
@@ -161,296 +87,188 @@
             <!-- DASHBOARD PAGE -->
             <div class="page" id="page-dashboard">
                 <div class="welcome-card">
-                    <div class="welcome-text">
-                        <h3 id="welcome-title">Bienvenido, Usuario</h3>
-                        <p id="period-info">Periodo actual: I Ciclo 2025</p>
-                    </div>
+                    <div class="welcome-text"><h3 id="welcome-title">Bienvenido, Usuario</h3><p id="period-info">Periodo actual: I Ciclo 2025</p></div>
                     <div class="welcome-icon">🎓</div>
                 </div>
-                
                 <div class="stats-grid" id="dashboard-stats"></div>
                 <div id="debt-warning-container"></div>
-                
+                <div id="creditos-progress-container"></div>
                 <div class="section-card">
-                    <div class="section-header">
-                        <h3>📚 Mis Cursos Matriculados</h3>
-                        <button class="btn-icon" onclick="exportMatriculaPDF()" id="export-pdf-btn">📄 Comprobante</button>
-                    </div>
-                    <div class="table-wrapper">
-                        <table class="data-table">
-                            <thead>
-                                <tr><th>Código</th><th>Curso</th><th>Horario</th><th>Aula</th><th>Docente</th><th>Estado</th></tr>
-                            </thead>
-                            <tbody id="my-courses-tbody"></tbody>
-                        </table>
-                    </div>
+                    <div class="section-header"><h3>Mis Cursos Matriculados</h3></div>
+                    <div class="table-wrapper"><table class="data-table"><thead><tr><th>Código</th><th>Curso</th><th>Horario</th><th>Aula</th><th>Docente</th><th>Estado</th></tr></thead><tbody id="my-courses-tbody"></tbody></table></div>
                 </div>
             </div>
             
-            <!-- OFERTA ACADÉMICA PAGE -->
+            <!-- GESTIÓN ACADÉMICA -->
+            <div class="page" id="page-gestion-academica">
+                <div class="page-header"><h3>Gestión Académica</h3></div>
+                
+                <!-- Carreras -->
+                <div class="section-card">
+                    <div class="section-header"><h3>Carreras</h3><button class="btn-primary" onclick="mostrarModalCarrera()">+ Nueva Carrera</button></div>
+                    <div class="table-wrapper"><table class="data-table"><thead><tr><th>ID</th><th>Código</th><th>Nombre</th><th>Acciones</th></tr></thead><tbody id="carreras-tbody"></tbody></table></div>
+                </div>
+                
+                <!-- Cursos -->
+                <div class="section-card">
+                    <div class="section-header"><h3>Cursos</h3><button class="btn-primary" onclick="mostrarModalCurso()">+ Nuevo Curso</button></div>
+                    <div class="filters-bar"><div class="search-box"><input type="text" id="search-curso" placeholder="Buscar curso..."></div><select id="filtro-carrera-curso" class="filter-select"><option value="">Todas las carreras</option></select><button class="btn-primary" onclick="cargarCursos()">Buscar</button></div>
+                    <div class="table-wrapper"><table class="data-table"><thead><tr><th>Código</th><th>Nombre</th><th>Créditos</th><th>Carrera</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="cursos-tbody"></tbody></table></div>
+                </div>
+                
+                <!-- Planes de Estudio -->
+                <div class="section-card">
+                    <div class="section-header"><h3>Planes de Estudio</h3><button class="btn-primary" onclick="mostrarModalPlan()">+ Nuevo Plan</button></div>
+                    <div class="table-wrapper"><table class="data-table"><thead><tr><th>ID</th><th>Nombre</th><th>Carrera</th><th>Cursos</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="planes-tbody"></tbody></table></div>
+                </div>
+            </div>
+            
+            <!-- OFERTA ACADÉMICA -->
             <div class="page" id="page-oferta">
                 <div class="period-tabs" id="period-tabs-oferta"></div>
-                
                 <div class="section-card">
-                    <div class="filters-bar">
-                        <div class="search-box">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-                            <input type="text" id="searchCurso" placeholder="Buscar curso por nombre o código...">
-                        </div>
-                        <select id="oferta-filter-carrera" class="filter-select">
-                            <option value="">Todas las carreras</option>
-                        </select>
-                        <button class="btn-primary" id="btn-nuevo-curso" onclick="abrirNuevoCurso()" style="display:none">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-                            Nueva Sección
-                        </button>
-                    </div>
-                    
-                    <div class="table-wrapper">
-                        <table class="data-table">
-                            <thead>
-                                <tr><th>Curso</th><th>Carrera</th><th>Cupos</th><th>Disponibles</th><th>Horario</th><th>Acciones</th></tr>
-                            </thead>
-                            <tbody id="oferta-tbody"></tbody>
-                        </table>
-                    </div>
+                    <div class="filters-bar"><div class="search-box"><input type="text" id="searchCurso" placeholder="Buscar curso..."></div><select id="oferta-filter-carrera" class="filter-select"><option value="">Todas las carreras</option></select><button class="btn-primary" id="btn-nuevo-seccion" onclick="abrirNuevaSeccion()" style="display:none">+ Nueva Sección</button></div>
+                    <div class="table-wrapper"><table class="data-table"><thead><tr><th>Curso</th><th>Carrera</th><th>Cupos</th><th>Disponibles</th><th>Horario</th><th>Acciones</th></tr></thead><tbody id="oferta-tbody"></tbody></table></div>
                 </div>
             </div>
             
-            <!-- MIS MATRÍCULAS PAGE -->
-            <div class="page" id="page-mis-matriculas">
-                <div class="page-header">
-                    <h3>📋 Historial de Matrículas</h3>
-                    <button class="btn-primary" onclick="abrirNuevaMatricula()">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-                        Nueva Matrícula
-                    </button>
-                </div>
+            <!-- MATRÍCULAS -->
+            <div class="page" id="page-matriculas">
+                <div class="page-header"><h3>Gestión de Matrículas</h3><button class="btn-primary" onclick="mostrarModalMatricula()">+ Nueva Matrícula</button></div>
                 <div class="section-card">
-                    <div class="table-wrapper">
-                        <table class="data-table">
-                            <thead><tr><th>ID</th><th>Periodo</th><th>Curso</th><th>Créditos</th><th>Monto</th><th>Estado</th><th>Acciones</th></tr></thead>
-                            <tbody id="mis-matriculas-tbody"></tbody>
-                        </table>
-                    </div>
+                    <div class="filters-bar"><div class="search-box"><input type="text" id="search-matricula" placeholder="Buscar estudiante..."></div><select id="filtro-estado-matricula" class="filter-select"><option value="">Todos</option><option value="Confirmada">Confirmadas</option><option value="Cancelada">Canceladas</option></select><button class="btn-primary" onclick="cargarMatriculas()">Buscar</button></div>
+                    <div class="table-wrapper"><table class="data-table"><thead><tr><th>ID</th><th>Estudiante</th><th>Curso</th><th>Periodo</th><th>Créditos</th><th>Monto</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="matriculas-tbody"></tbody></table></div>
                 </div>
             </div>
             
-            <!-- MIS PAGOS PAGE -->
-            <div class="page" id="page-mis-pagos">
-                <div class="pagos-stats" id="pagos-stats-student"></div>
-                <div class="section-card">
-                    <h3>💰 Mis Facturas</h3>
-                    <div class="table-wrapper">
-                        <table class="data-table">
-                            <thead><tr><th>Factura</th><th>Concepto</th><th>Monto</th><th>Vencimiento</th><th>Estado</th><th>Acciones</th></tr></thead>
-                            <tbody id="mis-facturas-tbody"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- GESTIÓN MATRÍCULAS (ADMIN) -->
-            <div class="page" id="page-matricula">
-                <div class="page-header">
-                    <h3>📊 Gestión de Matrículas</h3>
-                    <button class="btn-primary" onclick="abrirNuevaMatriculaAdmin()">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-                        Nueva Matrícula
-                    </button>
-                </div>
-                <div class="section-card">
-                    <div class="table-wrapper">
-                        <table class="data-table">
-                            <thead><tr><th>ID</th><th>Estudiante</th><th>Curso</th><th>Periodo</th><th>Monto</th><th>Estado</th><th>Acciones</th></tr></thead>
-                            <tbody id="matricula-tbody-admin"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- GESTIÓN PAGOS (ADMIN) -->
+            <!-- PAGOS -->
             <div class="page" id="page-pagos">
-                <div class="pagos-stats" id="pagos-stats-admin"></div>
+                <div class="page-header"><h3>Gestión de Pagos</h3></div>
+                <div class="pagos-stats" id="pagos-stats"></div>
                 <div class="section-card">
-                    <h3>📄 Todas las Facturas</h3>
-                    <div class="table-wrapper">
-                        <table class="data-table">
-                            <thead><tr><th>Factura</th><th>Estudiante</th><th>Concepto</th><th>Monto</th><th>Vencimiento</th><th>Estado</th><th>Acciones</th></tr></thead>
-                            <tbody id="facturas-tbody-admin"></tbody>
-                        </table>
-                    </div>
+                    <div class="filters-bar"><div class="search-box"><input type="text" id="search-factura" placeholder="Buscar estudiante..."></div><select id="filtro-estado-factura" class="filter-select"><option value="">Todos</option><option value="Pendiente">Pendientes</option><option value="Pagada">Pagadas</option></select><button class="btn-primary" onclick="cargarFacturas()">Buscar</button></div>
+                    <div class="table-wrapper"><table class="data-table"><thead><tr><th>Factura</th><th>Estudiante</th><th>Concepto</th><th>Monto</th><th>Vencimiento</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="facturas-tbody"></tbody></table></div>
                 </div>
             </div>
             
-            <!-- GESTIÓN USUARIOS (ADMIN) -->
-            <div class="page" id="page-usuarios">
-                <div class="page-header">
-                    <h3>👥 Gestión de Usuarios</h3>
-                    <button class="btn-primary" onclick="showUserModal()">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-                        Nuevo Usuario
-                    </button>
-                </div>
-                <div class="section-card">
-                    <div class="table-wrapper">
-                        <table class="data-table">
-                            <thead><tr><th>ID</th><th>Nombre</th><th>Email</th><th>Carnet</th><th>Carrera</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead>
-                            <tbody id="usuarios-body"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- REPORTES (ADMIN) -->
+            <!-- REPORTES -->
             <div class="page" id="page-reportes">
+                <div class="page-header"><h3>Reportes del Sistema</h3></div>
                 <div class="stats-grid" id="report-stats"></div>
                 <div class="section-card">
-                    <h3>📈 Reportes del Sistema</h3>
                     <div class="report-buttons">
-                        <button class="btn-primary" onclick="exportReport('matriculas')">📋 Reporte Matrículas</button>
-                        <button class="btn-primary" onclick="exportReport('financiero')">💰 Reporte Financiero</button>
-                        <button class="btn-primary" onclick="exportReport('estudiantes')">👨‍🎓 Reporte Estudiantes</button>
-                        <button class="btn-primary" onclick="generarGraficos()">📊 Ver Estadísticas</button>
+                        <button class="btn-primary" onclick="generarReporte('matriculas')">Reporte Matrículas</button>
+                        <button class="btn-primary" onclick="generarReporte('financiero')">Reporte Financiero</button>
+                        <button class="btn-primary" onclick="generarReporte('estudiantes')">Reporte Estudiantes</button>
+                        <button class="btn-primary" onclick="generarReporte('pagos')">Reporte Pagos</button>
                     </div>
-                    <div id="graficos-container" style="display:none; margin-top:20px;">
-                        <canvas id="chart-matriculas" width="400" height="200"></canvas>
-                        <canvas id="chart-pagos" width="400" height="200" style="margin-top:20px;"></canvas>
+                    <div id="reporte-contenedor" style="margin-top:20px;"></div>
+                </div>
+            </div>
+            
+            <!-- USUARIOS -->
+            <div class="page" id="page-usuarios">
+                <div class="page-header"><h3>Gestión de Usuarios</h3><button class="btn-primary" onclick="mostrarModalUsuario()">+ Nuevo Usuario</button></div>
+                <div class="section-card">
+                    <div class="table-wrapper"><table class="data-table"><thead><tr><th>ID</th><th>Nombre</th><th>Email</th><th>Carnet</th><th>Carrera</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="usuarios-tbody"></tbody></table></div>
+                </div>
+            </div>
+            
+            <!-- BITÁCORA -->
+            <div class="page" id="page-bitacora">
+                <div class="page-header"><h3>Bitácora de Auditoría</h3><button class="btn-primary" onclick="exportarBitacora()">Exportar CSV</button></div>
+                <div class="section-card">
+                    <div class="filters-bar">
+                        <div class="filter-group"><label>Fecha Inicio</label><input type="date" id="filtro-fecha-inicio" class="filter-input"></div>
+                        <div class="filter-group"><label>Fecha Fin</label><input type="date" id="filtro-fecha-fin" class="filter-input"></div>
+                        <div class="filter-group"><label>Usuario</label><input type="text" id="filtro-usuario" placeholder="Nombre" class="filter-input"></div>
+                        <div class="filter-group"><label>Acción</label><select id="filtro-accion" class="filter-select"></select></div>
+                        <button class="btn-primary" onclick="cargarBitacora()">Buscar</button>
+                        <button class="btn-cancel" onclick="limpiarFiltrosBitacora()">Limpiar</button>
                     </div>
+                    <div id="bitacora-container"></div>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
+ 
 <!-- MODALES -->
-<div class="modal-overlay" id="modal-pago">
-    <div class="modal">
-        <div class="modal-header">
-            <h3>💳 Procesar Pago</h3>
-            <button class="modal-close" onclick="closeMods()">✕</button>
-        </div>
-        <div class="invoice-box" id="pago-info"></div>
-        <div class="modal-field">
-            <label>Método de Pago</label>
-            <select id="pago-metodo">
-                <option>Tarjeta de Crédito</option>
-                <option>Transferencia Bancaria</option>
-                <option>Sinpe Móvil</option>
-                <option>Efectivo (Tesorería)</option>
-            </select>
-        </div>
-        <div class="modal-field">
-            <label>Referencia</label>
-            <input type="text" id="pago-ref" placeholder="Número de referencia">
-        </div>
-        <div class="modal-footer">
-            <button class="btn-cancel" onclick="closeMods()">Cancelar</button>
-            <button class="btn-confirm" onclick="procesarPago()">Confirmar Pago</button>
-        </div>
-    </div>
-</div>
+<div class="modal-overlay" id="modal-pago"><div class="modal"><div class="modal-header"><h3>Procesar Pago</h3><button class="modal-close" onclick="closeMods()">X</button></div><div class="invoice-box" id="pago-info"></div><div class="modal-field"><label>Método de Pago</label><select id="pago-metodo"><option>Tarjeta de Crédito</option><option>Transferencia Bancaria</option><option>Sinpe Móvil</option><option>Efectivo</option></select></div><div class="modal-field"><label>Referencia</label><input type="text" id="pago-ref" placeholder="Número de referencia"></div><div class="modal-footer"><button class="btn-cancel" onclick="closeMods()">Cancelar</button><button class="btn-confirm" onclick="procesarPago()">Confirmar Pago</button></div></div></div>
 
-<div class="modal-overlay" id="modal-curso">
+<div class="modal-overlay" id="modal-delete"><div class="modal modal-sm"><div class="modal-header"><h3>Confirmar Eliminación</h3><button class="modal-close" onclick="closeMods()">X</button></div><div class="delete-icon">🗑️</div><div class="delete-msg">¿Seguro que deseas eliminar <b id="del-name"></b>?</div><div class="modal-footer"><button class="btn-cancel" onclick="closeMods()">Cancelar</button><button class="btn-confirm red" onclick="doDelete()">Sí, Eliminar</button></div></div></div>
+
+<!-- Modal Carrera -->
+<div class="modal-overlay" id="modal-carrera"><div class="modal"><div class="modal-header"><h3 id="carrera-modal-title">+ Nueva Carrera</h3><button class="modal-close" onclick="closeMods()">X</button></div><input type="hidden" id="carrera-id"><div class="modal-field"><label>Código *</label><input type="text" id="carrera-codigo" placeholder="Ej: IS"></div><div class="modal-field"><label>Nombre *</label><input type="text" id="carrera-nombre" placeholder="Ej: Ingeniería en Sistemas"></div><div class="modal-footer"><button class="btn-cancel" onclick="closeMods()">Cancelar</button><button class="btn-confirm blue" onclick="guardarCarrera()">Guardar</button></div></div></div>
+
+<!-- Modal Curso -->
+<div class="modal-overlay" id="modal-curso"><div class="modal modal-lg"><div class="modal-header"><h3 id="curso-modal-title">+ Nuevo Curso</h3><button class="modal-close" onclick="closeMods()">X</button></div><input type="hidden" id="curso-id"><div class="modal-grid"><div class="modal-field"><label>Código *</label><input type="text" id="curso-codigo" placeholder="IS-101"></div><div class="modal-field"><label>Nombre *</label><input type="text" id="curso-nombre" placeholder="Nombre del curso"></div></div><div class="modal-grid"><div class="modal-field"><label>Créditos *</label><input type="number" id="curso-creditos" min="1"></div><div class="modal-field"><label>Costo por Crédito</label><input type="number" id="curso-costo" value="60000"></div></div><div class="modal-grid"><div class="modal-field"><label>Carrera</label><select id="curso-programa"></select></div><div class="modal-field"></div></div><div class="modal-field"><label>Descripción</label><textarea id="curso-descripcion" rows="3"></textarea></div><div class="modal-footer"><button class="btn-cancel" onclick="closeMods()">Cancelar</button><button class="btn-confirm blue" onclick="guardarCurso()">Guardar</button></div></div></div>
+
+<!-- Modal Plan de Estudio -->
+<div class="modal-overlay" id="modal-plan"><div class="modal modal-lg"><div class="modal-header"><h3 id="plan-modal-title">+ Nuevo Plan</h3><button class="modal-close" onclick="closeMods()">X</button></div><input type="hidden" id="plan-id"><div class="modal-grid"><div class="modal-field"><label>Nombre del Plan *</label><input type="text" id="plan-nombre" placeholder="Ingeniería en Sistemas 2025"></div><div class="modal-field"><label>Carrera *</label><input type="text" id="plan-carrera" placeholder="Ingeniería en Sistemas"></div></div><div class="modal-grid"><div class="modal-field"><label>Estado</label><select id="plan-estado"><option value="Activo">Activo</option><option value="Inactivo">Inactivo</option></select></div><div class="modal-field"><button class="btn-primary" onclick="mostrarAgregarCursoPlan()">+ Agregar Curso</button></div></div><div class="modal-footer"><button class="btn-cancel" onclick="closeMods()">Cancelar</button><button class="btn-confirm blue" onclick="guardarPlan()">Guardar</button></div></div></div>
+
+<div class="modal-overlay" id="modal-cursos-plan"><div class="modal modal-lg"><div class="modal-header"><h3 id="modal-cursos-plan-title">Cursos del Plan</h3><button class="modal-close" onclick="closeMods()">X</button></div><div id="modal-cursos-plan-content"></div><div class="modal-footer"><button class="btn-cancel" onclick="closeMods()">Cerrar</button></div></div></div>
+
+<div class="modal-overlay" id="modal-agregar-curso-plan"><div class="modal"><div class="modal-header"><h3>+ Agregar Curso al Plan</h3><button class="modal-close" onclick="closeMods()">X</button></div><div class="modal-field"><label>Curso</label><select id="plan-curso-id"></select></div><div class="modal-grid"><div class="modal-field"><label>Cuatrimestre</label><input type="number" id="plan-curso-cuatrimestre" min="1" max="12"></div><div class="modal-field"><label>Créditos</label><input type="number" id="plan-curso-creditos" min="1"></div></div><div class="modal-field"><label>Requisito</label><input type="text" id="plan-curso-requisito" placeholder="Ej: Programación I"></div><div class="modal-footer"><button class="btn-cancel" onclick="closeMods()">Cancelar</button><button class="btn-confirm blue" onclick="guardarCursoPlan()">Agregar</button></div></div></div>
+
+<!-- Modal Matrícula -->
+<div class="modal-overlay" id="modal-matricula"><div class="modal modal-lg"><div class="modal-header"><h3>Nueva Matrícula</h3><button class="modal-close" onclick="closeMods()">X</button></div><div class="modal-field"><label>Estudiante</label><select id="matricula-estudiante-id"></select></div><div class="modal-field"><label>Sección</label><select id="matricula-seccion-id"></select></div><div class="modal-footer"><button class="btn-cancel" onclick="closeMods()">Cancelar</button><button class="btn-confirm blue" onclick="guardarMatricula()">Registrar Matrícula</button></div></div></div>
+
+<!-- Modal Usuario -->
+<div class="modal-overlay" id="modal-usuario"><div class="modal modal-lg"><div class="modal-header"><h3 id="usuario-modal-title">+ Nuevo Usuario</h3><button class="modal-close" onclick="closeMods()">X</button></div><input type="hidden" id="usuario-id"><div class="modal-grid"><div class="modal-field"><label>Nombre *</label><input type="text" id="usuario-nombre"></div><div class="modal-field"><label>Email *</label><input type="email" id="usuario-email"></div></div><div class="modal-grid"><div class="modal-field"><label>Carnet</label><input type="text" id="usuario-carnet"></div><div class="modal-field"><label>Carrera</label><select id="usuario-carrera"></select></div></div><div class="modal-grid"><div class="modal-field"><label>Rol *</label><select id="usuario-rol"><option value="student">Estudiante</option><option value="admin">Administrador</option></select></div><div class="modal-field"><label>Contraseña *</label><input type="password" id="usuario-password"></div></div><div class="modal-field"><label>Confirmar Contraseña</label><input type="password" id="usuario-confirm-password"></div><div class="modal-footer"><button class="btn-cancel" onclick="closeMods()">Cancelar</button><button class="btn-confirm blue" onclick="guardarUsuario()">Guardar</button></div></div></div>
+
+<!-- Modal Sección -->
+<div class="modal-overlay" id="modal-seccion">
     <div class="modal modal-lg">
         <div class="modal-header">
-            <h3 id="c-title">➕ Nueva Sección</h3>
-            <button class="modal-close" onclick="closeMods()">✕</button>
+            <h3 id="seccion-modal-title">+ Nueva Sección</h3>
+            <button class="modal-close" onclick="closeMods()">X</button>
         </div>
+        <input type="hidden" id="seccion-id">
         <div class="modal-grid">
             <div class="modal-field">
                 <label>Curso *</label>
-                <select id="c-id-curso"></select>
+                <select id="seccion-curso-id"></select>
             </div>
             <div class="modal-field">
                 <label>Periodo *</label>
-                <select id="c-id-periodo"></select>
+                <select id="seccion-periodo-id"></select>
             </div>
         </div>
         <div class="modal-grid">
+            <div class="modal-field">
+                <label>Número de Sección</label>
+                <input type="number" id="seccion-numero" placeholder="1" min="1" value="1">
+            </div>
             <div class="modal-field">
                 <label>Docente</label>
-                <input id="c-docente" placeholder="Nombre del docente">
-            </div>
-            <div class="modal-field">
-                <label>Aula</label>
-                <input id="c-aula" placeholder="Ej: A-101">
+                <input type="text" id="seccion-docente" placeholder="Nombre del docente">
             </div>
         </div>
         <div class="modal-grid">
             <div class="modal-field">
-                <label>Horario</label>
-                <input id="c-horario" placeholder="Lun-Mie 08:00-10:00">
+                <label>Aula</label>
+                <input type="text" id="seccion-aula" placeholder="Ej: A-101">
             </div>
             <div class="modal-field">
                 <label>Cupo</label>
-                <input id="c-cupo" type="number" value="30">
+                <input type="number" id="seccion-cupo" value="30" min="1">
             </div>
         </div>
-        <div class="modal-footer">
-            <button class="btn-cancel" onclick="closeMods()">Cancelar</button>
-            <button class="btn-confirm blue" onclick="saveCurso()">Guardar Sección</button>
-        </div>
-    </div>
-</div>
-
-<div class="modal-overlay" id="modal-matricula">
-    <div class="modal modal-lg">
-        <div class="modal-header">
-            <h3 id="m-title">Nueva Matrícula</h3>
-            <button class="modal-close" onclick="closeMods()">✕</button>
-        </div>
-        <div class="modal-field" id="matricula-student-field" style="display:none">
-            <label>Estudiante</label>
-            <input id="m-estudiante" list="estudiantes-list" placeholder="Buscar estudiante...">
-            <datalist id="estudiantes-list"></datalist>
-        </div>
         <div class="modal-field">
-            <label>Seleccionar Secciones (máx 18 créditos)</label>
-            <div class="course-list" id="seccion-list-modal"></div>
+            <label>Horario</label>
+            <input type="text" id="seccion-horario" placeholder="Ej: Lun-Mie 08:00-10:00">
         </div>
         <div class="modal-footer">
             <button class="btn-cancel" onclick="closeMods()">Cancelar</button>
-            <button class="btn-confirm blue" onclick="confirmarMatriculaWrapper()">Confirmar Matrícula</button>
+            <button class="btn-confirm blue" onclick="guardarSeccion()">Guardar Sección</button>
         </div>
     </div>
 </div>
-
-<div class="modal-overlay" id="modal-delete">
-    <div class="modal modal-sm">
-        <div class="modal-header">
-            <h3>Confirmar Eliminación</h3>
-            <button class="modal-close" onclick="closeMods()">✕</button>
-        </div>
-        <div class="delete-icon">🗑️</div>
-        <div class="delete-msg">¿Seguro que deseas eliminar <b id="del-name"></b>?</div>
-        <div class="modal-footer">
-            <button class="btn-cancel" onclick="closeMods()">Cancelar</button>
-            <button class="btn-confirm red" onclick="doDelete()">Sí, Eliminar</button>
-        </div>
-    </div>
-</div>
-
-<div class="modal-overlay" id="modal-comprobante">
-    <div class="modal modal-lg">
-        <div class="modal-header">
-            <h3>Comprobante de Matrícula</h3>
-            <button class="modal-close" onclick="closeMods()">✕</button>
-        </div>
-        <div id="comprobante-content" style="padding:1rem;"></div>
-        <div class="modal-footer">
-            <button class="btn-confirm blue" onclick="downloadComprobantePDF()">📄 Descargar PDF</button>
-            <button class="btn-cancel" onclick="closeMods()">Cerrar</button>
-        </div>
-    </div>
-</div>
-
+ 
 <div id="toast"></div>
-<div id="loading-overlay" class="loading-overlay" style="display:none">
-    <div class="spinner"></div>
-    <p>Cargando...</p>
-</div>
-
+<div id="loading-overlay" class="loading-overlay" style="display:none"><div class="spinner"></div><p>Cargando...</p></div>
+ 
 <script src="js/script.js"></script>
 </body>
 </html>
